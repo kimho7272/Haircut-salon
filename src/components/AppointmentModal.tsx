@@ -33,7 +33,8 @@ export default function AppointmentModal({
   const [formData, setFormData] = useState({
     customer_id: '',
     staff_id: '',
-    service_id: '',
+    service_ids: [] as string[], // Changed to array for multiple services
+    custom_duration: 0, // Custom duration input
     appointment_time: '10:00',
     notes: ''
   })
@@ -114,8 +115,12 @@ export default function AppointmentModal({
   const [services, setServices] = useState<Service[]>([])
   const [staff, setStaff] = useState<Staff[]>([])
 
-  // 타입 안전성을 위한 추가 체크
-  const selectedService = services?.find((s: Service) => s.id === formData.service_id)
+  // 선택된 서비스들과 총 소요시간 계산
+  const selectedServices = services?.filter((s: Service) => formData.service_ids.includes(s.id)) || []
+  const calculatedDuration = selectedServices.reduce((total, service) => total + service.duration, 0)
+
+  // 실제 사용할 소요시간 (커스텀 입력이 있으면 커스텀, 없으면 계산된 시간)
+  const finalDuration = formData.custom_duration > 0 ? formData.custom_duration : calculatedDuration
   const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [newCustomer, setNewCustomer] = useState({
     name: '',
@@ -187,12 +192,45 @@ export default function AppointmentModal({
       setSelectedMinute(minute)
       setSelectedAppointmentDate(appointment.appointment_date)
 
+      // Get service IDs from the services array (new format) or fallback to old format
+      let serviceIds: string[] = []
+      let customDuration = 0
+
+      console.log('DEBUG Edit mode - Raw appointment data:', {
+        appointmentId: appointment.id,
+        services: appointment.services,
+        service_id: appointment.service_id,
+        duration: appointment.duration,
+        customer: appointment.customer?.name
+      })
+
+      if (appointment.services && appointment.services.length > 0) {
+        // New format: use services array
+        serviceIds = appointment.services.map(service => service.id)
+        customDuration = appointment.duration
+        console.log('DEBUG Edit mode - Using services array:', serviceIds)
+      } else if (appointment.service_id) {
+        // Old format fallback: try to parse service_id
+        try {
+          const parsed = JSON.parse(appointment.service_id)
+          serviceIds = Array.isArray(parsed) ? parsed : [appointment.service_id]
+          console.log('DEBUG Edit mode - Parsed JSON service_id:', serviceIds)
+        } catch {
+          serviceIds = [appointment.service_id]
+          console.log('DEBUG Edit mode - Single service_id:', serviceIds)
+        }
+        customDuration = appointment.duration
+      }
+
+      console.log('DEBUG Edit mode - Final serviceIds:', serviceIds, 'customDuration:', customDuration)
+
       setFormData({
         customer_id: appointment.customer_id,
         staff_id: appointment.staff_id,
-        service_id: appointment.service_id,
+        service_ids: serviceIds,
+        custom_duration: customDuration,
         appointment_time: appointmentTime,
-        notes: appointment.notes || ''
+        notes: (appointment.notes || '').replace(/\n?\[MULTI_SERVICES\]:.*$/, '') // Hide technical info from user
       })
 
       // 고객명을 검색 필드에 표시
@@ -218,6 +256,11 @@ export default function AppointmentModal({
       setCustomers(customersData)
       setServices(servicesData)
       setStaff(staffData)
+
+      // 새 예약 추가 모드에서 서비스가 선택되지 않은 경우 첫 번째 서비스 자동 선택
+      if (mode === 'add' && formData.service_ids.length === 0 && servicesData.length > 0) {
+        setFormData(prev => ({ ...prev, service_ids: [servicesData[0].id] }))
+      }
     } catch (error) {
       console.error('데이터 로딩 실패:', error)
     }
@@ -314,19 +357,24 @@ export default function AppointmentModal({
   // 실제 예약 생성 로직
   const createAppointmentWithCustomer = async (customerId: string) => {
     const selectedStaff = formData.staff_id ? staff.find(s => s.id === formData.staff_id) : null
-    const selectedService = services.find(s => s.id === formData.service_id)
 
-    if (!selectedService) {
+    if (selectedServices.length === 0) {
       throw new Error(t('select_service_required'))
     }
+
+    console.log('Saving appointment with data:', {
+      serviceIds: formData.service_ids,
+      finalDuration: finalDuration,
+      selectedServices: selectedServices.map(s => s.name)
+    })
 
     const appointmentData = {
       customer_id: customerId,
       staff_id: selectedStaff?.id || null,
-      service_id: selectedService.id,
+      service_ids: formData.service_ids, // Pass all selected services
       appointment_date: selectedAppointmentDate,
       appointment_time: formData.appointment_time,
-      duration: selectedService.duration,
+      duration: finalDuration,
       notes: formData.notes,
       status: 'scheduled' as const
     }
@@ -430,7 +478,8 @@ export default function AppointmentModal({
     setFormData({
       customer_id: '',
       staff_id: '',
-      service_id: '',
+      service_ids: services.length > 0 ? [services[0].id] : [],
+      custom_duration: 0,
       appointment_time: '10:00',
       notes: ''
     })
@@ -540,7 +589,7 @@ export default function AppointmentModal({
                         ))
                       ) : (
                         <div className="p-2 text-gray-500 text-center text-sm">
-                          고객을 찾을 수 없습니다.
+                          {t('customer_not_found')}
                         </div>
                       )}
                     </div>
@@ -572,7 +621,7 @@ export default function AppointmentModal({
                     <div className="mt-3 bg-gray-50 rounded-lg p-3 max-h-60 overflow-y-auto">
                     {historyLoading ? (
                       <div className="text-center py-4 text-gray-500">
-                        기록을 불러오는 중...
+                        {t('loading_history')}
                       </div>
                     ) : customerHistory.length > 0 ? (
                       <div className="space-y-1">
@@ -593,12 +642,24 @@ export default function AppointmentModal({
                                     day: '2-digit'
                                   })}
                                 </span>
-                                <span className="font-medium text-gray-900">
-                                  {appointment.service?.name || t('no_service_info')}
-                                </span>
-                                <span className="text-gray-600">
-                                  {appointment.service?.price ? formatCurrency(appointment.service.price) : ''}
-                                </span>
+                                <div className="flex flex-col gap-1">
+                                  {appointment.services && appointment.services.length > 0 ? (
+                                    appointment.services.map((service, idx) => (
+                                      <div key={service.id} className="flex items-center gap-2">
+                                        <span className="font-medium text-gray-900">
+                                          {service.name}
+                                        </span>
+                                        <span className="text-gray-600 text-xs">
+                                          {formatCurrency(service.price)}
+                                        </span>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <span className="font-medium text-gray-900">
+                                      {t('no_service_info')}
+                                    </span>
+                                  )}
+                                </div>
                                 {appointment.staff && (
                                   <span className="text-gray-500 text-xs">
                                     {appointment.staff.name}
@@ -626,7 +687,7 @@ export default function AppointmentModal({
                       </div>
                     ) : (
                       <div className="text-center py-2 text-gray-500 text-sm">
-                        방문 기록이 없습니다
+                        {t('no_visit_history')}
                       </div>
                     )}
                   </div>
@@ -803,24 +864,76 @@ export default function AppointmentModal({
           </div>
 
           {/* 서비스 */}
-          <div className="flex items-center gap-3">
-            <label className="w-[100px] text-sm font-medium text-gray-700 whitespace-nowrap">
-              <Scissors className="w-4 h-4 inline mr-1" />
-              {t('service_label')}
-            </label>
-            <select
-              value={formData.service_id}
-              onChange={(e) => setFormData(prev => ({ ...prev, service_id: e.target.value }))}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-              required
-            >
-              <option value="">{t('service_selection')}</option>
-              {services.map(service => (
-                <option key={service.id} value={service.id}>
-                  {service.name} - {formatCurrency(service.price)} ({service.duration}{t('minutes')})
-                </option>
-              ))}
-            </select>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <label className="w-[100px] text-sm font-medium text-gray-700 whitespace-nowrap pt-2">
+                <Scissors className="w-4 h-4 inline mr-1" />
+                {t('service_label')}
+              </label>
+              <div className="flex-1">
+                <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                  {services.map(service => (
+                    <label key={service.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.service_ids.includes(service.id)}
+                        onChange={(e) => {
+                          const isChecked = e.target.checked
+                          setFormData(prev => ({
+                            ...prev,
+                            service_ids: isChecked
+                              ? [...prev.service_ids, service.id]
+                              : prev.service_ids.filter(id => id !== service.id),
+                            custom_duration: 0 // Reset custom duration when services change
+                          }))
+                        }}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-900 flex-1">
+                        {service.name} ({service.duration}{t('minutes')})
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {formatCurrency(service.price)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {formData.service_ids.length === 0 && (
+                  <p className="text-xs text-red-500 mt-1">{t('select_service_required')}</p>
+                )}
+              </div>
+            </div>
+
+            {/* 소요시간 */}
+            <div className="flex items-center gap-3">
+              <label className="w-[100px] text-sm font-medium text-gray-700 whitespace-nowrap">
+                {t('duration_label')}
+              </label>
+              <div className="flex-1 flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">
+                    {t('suggested')}: {calculatedDuration}{t('minutes')}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max="480"
+                  step="10"
+                  placeholder={calculatedDuration.toString()}
+                  value={formData.custom_duration || ''}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    custom_duration: parseInt(e.target.value) || 0
+                  }))}
+                  className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-600">{t('minutes')}</span>
+                <span className="text-xs text-gray-500">
+                  ({t('final_duration')}: {finalDuration}{t('minutes')})
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* 담당자 */}
@@ -833,12 +946,18 @@ export default function AppointmentModal({
               onChange={(e) => setFormData(prev => ({ ...prev, staff_id: e.target.value }))}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
             >
-              <option value="">{t('staff_selection')}</option>
-              {staff.map(member => (
-                <option key={member.id} value={member.id}>
-                  {member.name} ({member.role === 'admin' ? t('admin_role') : t('staff_role')})
-                </option>
-              ))}
+              {staff
+                .sort((a, b) => {
+                  // Staff 역할을 먼저, Admin 역할을 나중에
+                  if (a.role === 'staff' && b.role === 'admin') return -1
+                  if (a.role === 'admin' && b.role === 'staff') return 1
+                  return 0
+                })
+                .map(member => (
+                  <option key={member.id} value={member.id}>
+                    {member.name} ({member.role === 'admin' ? t('admin_role') : t('staff_role')})
+                  </option>
+                ))}
             </select>
           </div>
 

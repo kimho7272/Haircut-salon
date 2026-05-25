@@ -25,7 +25,6 @@ export type Customer = {
 
 export type Staff = {
   id: string
-  username: string
   name: string
   role: 'admin' | 'staff'
   active: boolean
@@ -65,4 +64,11 @@ export type Payment = {
   payment_method: 'cash' | 'card'
   payment_date: string
   staff_id: string
+}
+
+export type AppointmentService = {
+  id: string
+  appointment_id: string
+  service_id: string
+  created_at: string
 }

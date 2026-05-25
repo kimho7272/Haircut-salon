@@ -162,22 +162,106 @@ export default function SchedulePage() {
   }
 
   // 두 예약이 시간적으로 겹치는지 확인
+  // Helper function to get total duration of an appointment
+  const getAppointmentDuration = (appointment: AppointmentWithRelations): number => {
+    let calculatedDuration = 30 // default minimum
+
+    // PRIORITIZE custom duration (important for multiple services with custom time)
+    if (appointment.duration && appointment.duration > 0) {
+      calculatedDuration = appointment.duration
+      console.log(`Using custom duration for ${appointment.id}:`, calculatedDuration)
+    } else if (appointment.services && appointment.services.length > 0) {
+      calculatedDuration = appointment.services.reduce((sum, service) => sum + service.duration, 0)
+      console.log(`Using services duration for ${appointment.id}:`, appointment.services.map(s => s.name), 'Total:', calculatedDuration)
+    }
+
+    // Debug log for the problematic appointment
+    if (appointment.customer?.name === 'Gayeon Kim') {
+      console.log('DEBUG Gayeon Kim appointment:', {
+        id: appointment.id,
+        services: appointment.services,
+        customDuration: appointment.duration,
+        finalDuration: calculatedDuration,
+        rawData: appointment
+      })
+    }
+
+    return calculatedDuration
+  }
+
   const isOverlapping = (apt1: AppointmentWithRelations, apt2: AppointmentWithRelations) => {
+    // 날짜가 다르면 겹치지 않음
+    if (apt1.appointment_date !== apt2.appointment_date) {
+      return false
+    }
+
     const getMinutes = (timeStr: string) => {
       const [hour, minute] = timeStr.slice(0, 5).split(':').map(Number)
       return hour * 60 + minute
     }
 
     const apt1Start = getMinutes(apt1.appointment_time)
-    const apt1End = apt1Start + apt1.service.duration
+    const apt1End = apt1Start + getAppointmentDuration(apt1)
     const apt2Start = getMinutes(apt2.appointment_time)
-    const apt2End = apt2Start + apt2.service.duration
 
-    return apt1Start < apt2End && apt2Start < apt1End
+    // 시작시간순 정렬 가정: apt1이 apt2보다 먼저 시작
+    // 겹침 조건: apt1이 끝나기 전에 apt2가 시작하면 겹침
+    const overlaps = apt1End > apt2Start
+
+    // Debug for testing
+    if (apt1.customer?.name === 'Gayeon Kim' || apt2.customer?.name === 'Gayeon Kim' ||
+        apt1.customer?.name === '서은정' || apt2.customer?.name === '서은정') {
+      console.log('🔍 Simplified overlap check:', {
+        apt1: { time: apt1.appointment_time, customer: apt1.customer?.name, start: apt1Start, end: apt1End },
+        apt2: { time: apt2.appointment_time, customer: apt2.customer?.name, start: apt2Start },
+        condition: `${apt1End} > ${apt2Start}`,
+        overlaps
+      })
+    }
+
+    return overlaps
   }
+
 
   // 겹치는 예약들을 그룹핑하고 정렬
   const groupOverlappingAppointments = (appointments: AppointmentWithRelations[]) => {
+    // Debug log for 12:30 appointments
+    const twelveThirtyAppts = appointments.filter(apt => apt.appointment_time.startsWith('12:30'))
+    if (twelveThirtyAppts.length > 0) {
+      console.log('🕐 12:30 Appointments found:', twelveThirtyAppts.map(apt => ({
+        time: apt.appointment_time,
+        customer: apt.customer?.name,
+        duration: getAppointmentDuration(apt),
+        services: apt.services?.map(s => s.name) || 'no services'
+      })))
+
+      // Also log ALL appointments to see the context
+      console.log('📋 All appointments in this group call:', appointments.map(apt => ({
+        id: apt.id.slice(-8),
+        time: apt.appointment_time,
+        customer: apt.customer?.name,
+        date: apt.appointment_date,
+        exactTime: apt.appointment_time
+      })))
+
+      // Special check for exact same time appointments
+      const exactSameTimeGroups = appointments.reduce((acc, apt) => {
+        const key = `${apt.appointment_date}_${apt.appointment_time}`
+        if (!acc[key]) acc[key] = []
+        acc[key].push(apt)
+        return acc
+      }, {} as Record<string, typeof appointments>)
+
+      Object.entries(exactSameTimeGroups).forEach(([key, appts]) => {
+        if (appts.length > 1) {
+          console.log('⚡ EXACT SAME TIME APPOINTMENTS:', key, appts.map(a => a.customer?.name))
+        }
+      })
+
+      // Count how many 12:30 appointments are in this call
+      console.log('🔢 Number of 12:30 appointments in this call:', twelveThirtyAppts.length)
+    }
+
     const groups: AppointmentWithRelations[][] = []
     const processed = new Set<string>()
 
@@ -187,16 +271,40 @@ export default function SchedulePage() {
       const group = [apt]
       processed.add(apt.id)
 
+      // Debug for 12:30 appointments
+      if (apt.appointment_time.startsWith('12:30')) {
+        console.log('🔄 Processing 12:30 appointment:', apt.customer?.name, 'looking for overlaps...')
+      }
+
       // 현재 예약과 겹치는 모든 예약 찾기
       for (const otherApt of appointments) {
-        if (processed.has(otherApt.id)) continue
+        if (processed.has(otherApt.id)) {
+          // Debug: skip already processed
+          if (apt.appointment_time.startsWith('12:30') || otherApt.appointment_time.startsWith('12:30')) {
+            console.log('⏭️ Skipping already processed:', otherApt.customer?.name)
+          }
+          continue
+        }
+
+        // Check if we're comparing 12:30 appointments
+        if (apt.appointment_time.startsWith('12:30') || otherApt.appointment_time.startsWith('12:30')) {
+          console.log('🔍 Checking if overlap between:', {
+            apt1: { time: apt.appointment_time, customer: apt.customer?.name },
+            apt2: { time: otherApt.appointment_time, customer: otherApt.customer?.name }
+          })
+        }
+
         if (group.some(groupApt => isOverlapping(groupApt, otherApt))) {
           group.push(otherApt)
           processed.add(otherApt.id)
+
+          if (apt.appointment_time.startsWith('12:30') || otherApt.appointment_time.startsWith('12:30')) {
+            console.log('✅ Found overlap! Added to group:', otherApt.customer?.name)
+          }
         }
       }
 
-      // 그룹 내에서 정렬: 시작시간 우선, 그다음 등록시간
+      // 그룹 내에서 정렬: 시간순 우선, 그다음 등록시간
       group.sort((a, b) => {
         const timeA = a.appointment_time.slice(0, 5)
         const timeB = b.appointment_time.slice(0, 5)
@@ -208,6 +316,17 @@ export default function SchedulePage() {
 
       groups.push(group)
     }
+
+    // Debug output for groups with 12:30 appointments
+    groups.forEach((group, idx) => {
+      if (group.some(apt => apt.appointment_time.startsWith('12:30'))) {
+        console.log(`📊 Group ${idx} contains 12:30 appointment:`, group.map(apt => ({
+          time: apt.appointment_time,
+          customer: apt.customer?.name,
+          groupSize: group.length
+        })))
+      }
+    })
 
     return groups
   }
@@ -221,8 +340,17 @@ export default function SchedulePage() {
     const topPercentage = (minute / 60) * 100
 
     // 높이 계산 (소요시간 기준, 최소 30분으로 표시)
-    const duration = Math.max(appointment.service.duration, 30)
-    const heightPercentage = Math.min((duration / 60) * 100, 100)
+    const duration = Math.max(getAppointmentDuration(appointment), 30)
+    const heightPercentage = (duration / 60) * 100 // Remove 100% limit for multi-hour appointments
+
+    // Debug log for Gayeon Kim appointment
+    if (appointment.customer?.name === 'Gayeon Kim') {
+      console.log('DEBUG Height calculation for Gayeon Kim:', {
+        duration: duration,
+        heightPercentage: heightPercentage,
+        appointmentTime: appointment.appointment_time
+      })
+    }
 
     // 너비와 위치 계산 (겹치는 예약이 있으면 나누어 배치)
     const width = groupSize > 1 ? `${100 / groupSize}%` : 'calc(100% - 4px)'
@@ -430,6 +558,19 @@ export default function SchedulePage() {
                 {/* 각 요일별 셀 */}
                 {weekDays.map((day, dayIndex) => {
                   const hourAppointments = getAppointmentsForHour(day, hour)
+
+                  // 해당 날짜의 모든 예약으로 겹침 감지 (시간순 정렬된 상태)
+                  const dayAppointments = getAppointmentsForDate(day)
+                  const appointmentGroups = groupOverlappingAppointments(dayAppointments)
+
+                  // 현재 시간대에 표시할 예약들만 필터링
+                  const displayAppointments = appointmentGroups.flatMap(group =>
+                    group.filter(apt => {
+                      const [startHour] = apt.appointment_time.split(':').map(Number)
+                      return startHour === hour
+                    }).map(apt => ({ ...apt, groupSize: group.length, groupIndex: group.findIndex(g => g.id === apt.id) }))
+                  )
+
                   const isTodayColumn = isSameDay(day, new Date())
                   const isLastHour = hourIndex === hourBlocks.length - 1
 
@@ -460,44 +601,50 @@ export default function SchedulePage() {
                       </div>
 
                       {/* 예약들 */}
-                      {groupOverlappingAppointments(hourAppointments).map((group, groupIdx) =>
-                        group.map((appointment, aptIndex) => {
-                          const style = calculateAppointmentStyle(appointment, aptIndex, group.length)
-                          return (
-                            <div
-                              key={appointment.id}
-                              className={`absolute rounded-md border cursor-pointer transition-all hover:shadow-md z-10 ${getStatusColor(appointment)}`}
-                              style={{
-                                ...style
-                              }}
-                              onClick={() => handleEditAppointment(appointment)}
-                            >
-                              <div className="p-1 h-full overflow-hidden">
-                                <div className="flex justify-between items-start mb-0.5">
-                                  <div className="font-medium text-xs">
-                                    {appointment.appointment_time.slice(0, 5)}
-                                  </div>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleDeleteClick(appointment)
-                                    }}
-                                    className="p-0.5 text-gray-500 hover:text-red-600 transition-colors"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
+                      {displayAppointments.map((appointment) => {
+                        const style = calculateAppointmentStyle(appointment, appointment.groupIndex, appointment.groupSize)
+                        return (
+                          <div
+                            key={appointment.id}
+                            className={`absolute rounded-md border cursor-pointer transition-all hover:shadow-md z-10 ${getStatusColor(appointment)}`}
+                            style={{
+                              ...style
+                            }}
+                            onClick={() => handleEditAppointment(appointment)}
+                          >
+                            <div className="p-1 h-full overflow-hidden">
+                              <div className="flex justify-between items-start mb-0.5">
+                                <div className="font-medium text-xs">
+                                  {appointment.appointment_time.slice(0, 5)}
                                 </div>
-                                <div className="text-xs text-gray-700 truncate">
-                                  {appointment.customer?.name || t('customer_name_unknown')}
-                                </div>
-                                <div className="text-xs text-gray-600 truncate">
-                                  {appointment.service?.name || t('service_name_unknown')}
-                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDeleteClick(appointment)
+                                  }}
+                                  className="p-0.5 text-gray-500 hover:text-red-600 transition-colors"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                              <div className="text-xs text-gray-700 truncate">
+                                {appointment.customer?.name || t('customer_name_unknown')}
+                              </div>
+                              <div className="text-xs text-gray-600 truncate">
+                                {appointment.services && appointment.services.length > 0 ? (
+                                  appointment.services.length === 1 ? (
+                                    appointment.services[0].name
+                                  ) : (
+                                    `${appointment.services[0].name} 외 ${appointment.services.length - 1}개`
+                                  )
+                                ) : (
+                                  t('service_name_unknown')
+                                )}
                               </div>
                             </div>
-                          )
-                        })
-                      )}
+                          </div>
+                        )
+                      })}
                     </div>
                   )
                 })}
