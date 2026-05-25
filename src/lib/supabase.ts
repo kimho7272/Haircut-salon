@@ -16,7 +16,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export type Customer = {
   id: string
   name: string
-  phone: string
+  phone?: string
   email?: string
   notes?: string
   created_at: string

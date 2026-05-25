@@ -16,11 +16,13 @@ create table public.staff (
 create table public.customers (
     id uuid default uuid_generate_v4() primary key,
     name varchar(100) not null,
-    phone varchar(20) unique not null,
+    phone varchar(20),
     email varchar(255),
     notes text,
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-    last_visit timestamp with time zone
+    last_visit timestamp with time zone,
+    -- 전화번호가 있는 경우의 unique 제약조건
+    constraint unique_name_phone_with_number unique (name, phone)
 );
 
 -- Services table (서비스 메뉴)
@@ -59,11 +61,17 @@ create table public.payments (
     staff_id uuid references public.staff(id) on delete set null
 );
 
+-- Create unique constraint for customers without phone numbers
+-- This ensures only one customer per name when phone is NULL or empty
+create unique index unique_name_no_phone
+  on public.customers (name)
+  where phone is null or phone = '';
+
 -- Create indexes for better performance
 create index idx_appointments_date on public.appointments(appointment_date);
 create index idx_appointments_customer on public.appointments(customer_id);
 create index idx_appointments_staff on public.appointments(staff_id);
-create index idx_customers_phone on public.customers(phone);
+create index idx_customers_phone on public.customers(phone) where phone is not null;
 create index idx_payments_date on public.payments(payment_date);
 
 -- Row Level Security (RLS) policies

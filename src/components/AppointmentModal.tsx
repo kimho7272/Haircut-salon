@@ -1,11 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { X, User, Phone, Calendar, Clock, Scissors, CreditCard, Search } from 'lucide-react'
+import { X, User, Phone, Calendar, Clock, Scissors, CreditCard, Search, ChevronDown, ChevronUp, History } from 'lucide-react'
 import { format } from 'date-fns'
-import { ko } from 'date-fns/locale'
-import { getServices, getStaff, getCustomers, saveCustomer, saveAppointment, updateAppointment, type AppointmentWithRelations } from '@/utils/supabaseService'
+import { ko, enUS } from 'date-fns/locale'
+import { getServices, getStaff, getCustomers, saveCustomer, saveAppointment, updateAppointment, getCustomerHistory, type AppointmentWithRelations } from '@/utils/supabaseService'
 import { type Service, type Staff, type Customer } from '@/lib/supabase'
+import ErrorModal, { createPhoneErrorModal, createNamePhoneErrorModal, createGeneralErrorModal } from './ErrorModal'
+import DuplicateCustomerModal from './DuplicateCustomerModal'
+import { useLanguage } from '@/contexts/LanguageContext'
 
 interface AppointmentModalProps {
   isOpen: boolean
@@ -26,6 +29,7 @@ export default function AppointmentModal({
   mode = 'add',
   initialTime = null
 }: AppointmentModalProps) {
+  const { formatCurrency, t, language } = useLanguage()
   const [formData, setFormData] = useState({
     customer_id: '',
     staff_id: '',
@@ -121,6 +125,26 @@ export default function AppointmentModal({
   })
   const [loading, setLoading] = useState(false)
 
+  // 에러 모달 상태
+  const [errorModal, setErrorModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    details: '',
+    type: 'error' as const
+  })
+
+  // 중복 고객 모달 상태
+  const [duplicateModal, setDuplicateModal] = useState({
+    isOpen: false,
+    existingCustomers: [] as Customer[]
+  })
+
+  // 고객 방문 기록 상태
+  const [customerHistory, setCustomerHistory] = useState<AppointmentWithRelations[]>([])
+  const [showHistory, setShowHistory] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
+
   useEffect(() => {
     if (isOpen) {
       fetchData()
@@ -173,6 +197,12 @@ export default function AppointmentModal({
 
       // 고객명을 검색 필드에 표시
       setSearchCustomer(existingCustomer?.name || appointment.customer?.name || '')
+
+      // 수정 모드에서 고객 방문 기록 조회
+      if (appointment.customer_id) {
+        fetchCustomerHistory(appointment.customer_id)
+        setShowHistory(true)
+      }
     }
   }, [isOpen, appointment, mode, customers])
 
@@ -195,7 +225,7 @@ export default function AppointmentModal({
 
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchCustomer.toLowerCase()) ||
-    customer.phone.includes(searchCustomer)
+    (customer.phone && customer.phone.includes(searchCustomer))
   )
 
   // 시간 옵션 생성 함수들
@@ -228,71 +258,168 @@ export default function AppointmentModal({
     setFormData(prev => ({ ...prev, appointment_time: timeValue }))
   }
 
+  // 고객 방문 기록 조회
+  const fetchCustomerHistory = async (customerId: string) => {
+    console.log('고객 방문 기록 조회 시작:', customerId) // 디버깅
+    setHistoryLoading(true)
+    try {
+      const history = await getCustomerHistory(customerId)
+      console.log('조회된 방문 기록:', history) // 디버깅
+      setCustomerHistory(history)
+    } catch (error) {
+      console.error('방문 기록 조회 실패:', error)
+      setCustomerHistory([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  // 잠재적 중복 고객 찾기
+  const findPotentialDuplicates = (customerData: { name: string; phone?: string }) => {
+    const searchName = customerData.name.trim().toLowerCase()
+    const searchPhone = customerData.phone?.trim()
+
+    return customers.filter(customer => {
+      // 이름이 정확히 일치
+      const nameMatch = customer.name.trim().toLowerCase() === searchName
+
+      // 전화번호 조건 확인
+      const customerPhone = customer.phone?.trim()
+
+      // 둘 다 전화번호가 없는 경우 (null, undefined, 빈 문자열 모두 포함)
+      const bothNoPhone = (!customerPhone || customerPhone === '') && (!searchPhone || searchPhone === '')
+
+      // 전화번호가 정확히 일치하는 경우 (숫자만 비교)
+      const phoneMatch = customerPhone && searchPhone &&
+                        customerPhone.replace(/[^0-9]/g, '') === searchPhone.replace(/[^0-9]/g, '')
+
+      return nameMatch && (bothNoPhone || phoneMatch)
+    })
+  }
+
+  // 중복 고객 처리 함수들
+  const handleUseExistingCustomer = async (existingCustomer: Customer) => {
+    setDuplicateModal({ isOpen: false, existingCustomers: [] })
+
+    // 기존 고객 ID로 예약 생성 로직 실행
+    await createAppointmentWithCustomer(existingCustomer.id)
+  }
+
+  const handleReEnterInfo = () => {
+    setDuplicateModal({ isOpen: false, existingCustomers: [] })
+    // 고객 정보 입력 폼으로 돌아가서 사용자가 다른 정보를 입력할 수 있도록 함
+    // 아무 것도 하지 않고 모달만 닫으면 됨
+  }
+
+  // 실제 예약 생성 로직
+  const createAppointmentWithCustomer = async (customerId: string) => {
+    const selectedStaff = formData.staff_id ? staff.find(s => s.id === formData.staff_id) : null
+    const selectedService = services.find(s => s.id === formData.service_id)
+
+    if (!selectedService) {
+      throw new Error(t('select_service_required'))
+    }
+
+    const appointmentData = {
+      customer_id: customerId,
+      staff_id: selectedStaff?.id || null,
+      service_id: selectedService.id,
+      appointment_date: selectedAppointmentDate,
+      appointment_time: formData.appointment_time,
+      duration: selectedService.duration,
+      notes: formData.notes,
+      status: 'scheduled' as const
+    }
+
+    let result: AppointmentWithRelations
+    if (mode === 'edit' && appointment) {
+      const updated = await updateAppointment(appointment.id, appointmentData)
+      if (!updated) {
+        throw new Error(t('appointment_update_failed'))
+      }
+      result = updated
+    } else {
+      result = await saveAppointment(appointmentData)
+    }
+
+    onSave(result)
+    onClose()
+    resetForm()
+  }
+
+  // 새 고객 저장 및 예약 생성
+  const saveNewCustomerAndAppointment = async () => {
+    try {
+      // 실제 고객 저장 시도
+      const newCustomerData = await saveCustomer({
+        name: newCustomer.name.trim(),
+        phone: newCustomer.phone?.trim() || undefined,
+        email: newCustomer.email?.trim() || undefined,
+        notes: newCustomer.notes?.trim() || undefined
+      })
+
+      await createAppointmentWithCustomer(newCustomerData.id)
+
+      // 고객 목록 새로고침
+      await fetchData()
+    } catch (error: any) {
+      // 이름+전화번호 중복 제약조건 위반 시 중복 모달 표시
+      const isDuplicateError = error.message && (
+        error.message.includes('duplicate key value violates unique constraint "unique_name_phone_with_number"') ||
+        error.message.includes('duplicate key value violates unique constraint "unique_name_no_phone"') ||
+        error.message.includes('duplicate key value violates unique constraint "unique_name_phone_not_null"') ||
+        error.message.includes('duplicate key value violates unique constraint "unique_name_when_phone_null"') ||
+        error.message.includes('duplicate key value violates unique constraint "unique_name_phone"')
+      )
+
+      if (isDuplicateError) {
+        const potentialDuplicates = findPotentialDuplicates({
+          name: newCustomer.name,
+          phone: newCustomer.phone
+        })
+
+        setDuplicateModal({
+          isOpen: true,
+          existingCustomers: potentialDuplicates
+        })
+        return // 중복 모달을 띄우고 여기서 중단
+      }
+
+      // 다른 에러는 상위로 전파
+      throw error
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      let customerId = formData.customer_id
-
       // 새 고객 등록 처리
       if (showNewCustomer) {
-        const newCustomerData = await saveCustomer({
-          name: newCustomer.name,
-          phone: newCustomer.phone || '',
-          email: newCustomer.email || undefined,
-          notes: newCustomer.notes || undefined
-        })
-        customerId = newCustomerData.id
-      } else if (!customerId) {
-        throw new Error('고객을 선택해주세요.')
-      }
-
-      // 직원 정보 확인 (선택사항)
-      const selectedStaff = formData.staff_id ? staff.find(s => s.id === formData.staff_id) : null
-
-      // 서비스 정보 확인
-      const selectedService = services.find(s => s.id === formData.service_id)
-      if (!selectedService) {
-        throw new Error('서비스를 선택해주세요.')
-      }
-
-      const appointmentData = {
-        customer_id: customerId,
-        staff_id: selectedStaff?.id || null,
-        service_id: selectedService.id,
-        appointment_date: selectedAppointmentDate,
-        appointment_time: formData.appointment_time,
-        duration: selectedService.duration,
-        notes: formData.notes,
-        status: 'scheduled' as const
-      }
-
-      let result: AppointmentWithRelations
-      if (mode === 'edit' && appointment) {
-        // 수정
-        const updated = await updateAppointment(appointment.id, appointmentData)
-        if (!updated) {
-          throw new Error('예약 수정에 실패했습니다.')
-        }
-        result = updated
+        await saveNewCustomerAndAppointment()
+      } else if (!formData.customer_id) {
+        throw new Error(t('select_customer_required'))
       } else {
-        // 새로 추가
-        result = await saveAppointment(appointmentData)
+        // 기존 고객 선택된 경우
+        await createAppointmentWithCustomer(formData.customer_id)
       }
-
-      onSave(result)
-
-      // 새 고객이 추가된 경우 고객 목록 새로고침
-      if (showNewCustomer && newCustomer.name) {
-        await fetchData()
-      }
-
-      onClose()
-      resetForm()
     } catch (error: any) {
       console.error('예약 저장 실패:', error)
-      alert(error.message || '예약 저장에 실패했습니다.')
+
+      // 일반 에러 처리
+      const errorConfig = createGeneralErrorModal(
+        error.message || t('appointment_save_failed'),
+        error.code ? `${t('error_code')}: ${error.code}` : undefined
+      )
+
+      setErrorModal({
+        isOpen: true,
+        title: errorConfig.title,
+        message: errorConfig.message,
+        details: errorConfig.details || '',
+        type: errorConfig.type
+      })
     } finally {
       setLoading(false)
     }
@@ -313,18 +440,33 @@ export default function AppointmentModal({
     setSearchCustomer('')
     setShowNewCustomer(false)
     setNewCustomer({ name: '', phone: '', email: '', notes: '' })
+    setErrorModal({
+      isOpen: false,
+      title: '',
+      message: '',
+      details: '',
+      type: 'error'
+    })
+    setDuplicateModal({
+      isOpen: false,
+      existingCustomers: []
+    })
+    setCustomerHistory([])
+    setShowHistory(false)
+    setHistoryLoading(false)
   }
 
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-transparent flex items-center justify-center p-4">
+    <>
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-transparent flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl border-2 border-gray-400 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* 헤더 */}
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between py-3 px-4 border-b">
           <h2 className="text-xl font-bold text-gray-900">
-            {mode === 'edit' ? '예약 수정' : '새 예약 추가'}
+            {mode === 'edit' ? t('appointment_edit_title') : t('appointment_add_title')}
           </h2>
           <button
             onClick={() => {
@@ -338,132 +480,241 @@ export default function AppointmentModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* 고객 선택/추가 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <User className="w-4 h-4 inline mr-1" />
-              고객 정보
-            </label>
-
+          {/* 고객 정보 섹션 */}
+          <div className="space-y-3">
             {!showNewCustomer ? (
               <div className="space-y-3">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="고객명 또는 전화번호 검색..."
-                    value={searchCustomer}
-                    onChange={(e) => setSearchCustomer(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && filteredCustomers.length > 0) {
-                        e.preventDefault()
-                        const firstCustomer = filteredCustomers[0]
-                        setFormData(prev => ({ ...prev, customer_id: firstCustomer.id }))
-                        setSearchCustomer(firstCustomer.name)
-                      }
-                    }}
-                    className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                {/* 고객 정보 + 이름 검색 필드 */}
+                <div className="flex items-center gap-3">
+                  <label className="w-[100px] text-sm font-medium text-gray-700 whitespace-nowrap">
+                    <User className="w-4 h-4 inline mr-1" />
+                    {t('customer_info_label')}
+                  </label>
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder={t('search_customer_name_phone')}
+                      value={searchCustomer}
+                      onChange={(e) => setSearchCustomer(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && filteredCustomers.length > 0) {
+                          e.preventDefault()
+                          const firstCustomer = filteredCustomers[0]
+                          setFormData(prev => ({ ...prev, customer_id: firstCustomer.id }))
+                          setSearchCustomer(firstCustomer.name)
+                        }
+                      }}
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  </div>
                 </div>
 
+                {/* 검색된 고객 리스트 */}
                 {searchCustomer && (
-                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
-                    {filteredCustomers.length > 0 ? (
-                      filteredCustomers.map(customer => (
-                        <button
-                          key={customer.id}
-                          type="button"
-                          onClick={() => {
-                            setFormData(prev => ({ ...prev, customer_id: customer.id }))
-                            setSearchCustomer(customer.name)
-                          }}
-                          className={`w-full p-3 text-left hover:bg-gray-50 border-b last:border-b-0 ${
-                            formData.customer_id === customer.id ? 'bg-blue-50' : ''
-                          }`}
-                        >
-                          <div className="font-medium">{customer.name}</div>
-                          <div className="text-sm text-gray-500">{customer.phone}</div>
-                        </button>
-                      ))
+                  <div className="flex gap-3">
+                    <div className="w-[100px]"></div>
+                    <div className="flex-1 max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                      {filteredCustomers.length > 0 ? (
+                        filteredCustomers.map(customer => (
+                          <button
+                            key={customer.id}
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, customer_id: customer.id }))
+                              setSearchCustomer(customer.name)
+                              fetchCustomerHistory(customer.id)
+                              setShowHistory(true)
+                            }}
+                            className={`w-full p-2 text-left hover:bg-gray-50 border-b last:border-b-0 text-sm ${
+                              formData.customer_id === customer.id ? 'bg-blue-50' : ''
+                            }`}
+                          >
+                            <div className="font-medium">
+                              {customer.name}
+                              <span className="text-gray-500 ml-2">
+                                {customer.phone ? `(${customer.phone})` : `(${t('no_phone_number')})`}
+                              </span>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-2 text-gray-500 text-center text-sm">
+                          고객을 찾을 수 없습니다.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {/* 선택된 고객의 최근 방문 기록 */}
+            {formData.customer_id && !showNewCustomer && (
+              <div className="flex gap-3">
+                <div className="w-[100px]"></div>
+                <div className="flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowHistory(!showHistory)}
+                    className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                  >
+                    <History className="w-4 h-4" />
+                    {t('recent_visits')} ({customerHistory.length}{t('visits_count')})
+                    {showHistory ? (
+                      <ChevronUp className="w-4 h-4" />
                     ) : (
-                      <div className="p-3 text-gray-500 text-center">
-                        고객을 찾을 수 없습니다.
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </button>
+
+                  {showHistory && (
+                    <div className="mt-3 bg-gray-50 rounded-lg p-3 max-h-60 overflow-y-auto">
+                    {historyLoading ? (
+                      <div className="text-center py-4 text-gray-500">
+                        기록을 불러오는 중...
+                      </div>
+                    ) : customerHistory.length > 0 ? (
+                      <div className="space-y-1">
+                        {customerHistory.map((appointment, index) => {
+                          const appointmentDate = new Date(appointment.appointment_date)
+                          const isCompleted = appointment.status === 'completed' ||
+                            (appointment.status === 'scheduled' && appointmentDate < new Date(new Date().toDateString()))
+
+                          return (
+                            <div
+                              key={appointment.id}
+                              className="bg-white rounded px-3 py-1 border text-sm flex items-center justify-between"
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="text-gray-600 font-mono">
+                                  {appointmentDate.toLocaleDateString('ko-KR', {
+                                    month: '2-digit',
+                                    day: '2-digit'
+                                  })}
+                                </span>
+                                <span className="font-medium text-gray-900">
+                                  {appointment.service?.name || t('no_service_info')}
+                                </span>
+                                <span className="text-gray-600">
+                                  {appointment.service?.price ? formatCurrency(appointment.service.price) : ''}
+                                </span>
+                                {appointment.staff && (
+                                  <span className="text-gray-500 text-xs">
+                                    {appointment.staff.name}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-1 text-xs rounded ${
+                                  isCompleted ? 'bg-green-100 text-green-700' :
+                                  appointment.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                  'bg-blue-100 text-blue-700'
+                                }`}>
+                                  {isCompleted ? '✓' :
+                                   appointment.status === 'cancelled' ? '✕' : '○'}
+                                </span>
+                              </div>
+                              {appointment.notes && (
+                                <div className="ml-2 text-xs text-gray-400 truncate max-w-20" title={appointment.notes}>
+                                  📝
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-2 text-gray-500 text-sm">
+                        방문 기록이 없습니다
                       </div>
                     )}
                   </div>
                 )}
+                </div>
+              </div>
+            )}
 
+            {/* 새 고객 등록 */}
+            {!showNewCustomer ? (
+              <div className="flex gap-3">
+                <div className="w-[100px]"></div>
                 <button
                   type="button"
                   onClick={() => setShowNewCustomer(true)}
-                  className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-all"
+                  className="flex-1 p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-all"
                 >
-                  + 새 고객 등록
+                  + {t('new_customer_register')}
                 </button>
               </div>
             ) : (
-              <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-gray-900">새 고객 정보</h4>
-                  <button
-                    type="button"
-                    onClick={() => setShowNewCustomer(false)}
-                    className="text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    취소
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    placeholder="고객명"
-                    value={newCustomer.name}
-                    onChange={(e) => setNewCustomer(prev => ({ ...prev, name: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                  <input
-                    type="tel"
-                    placeholder="전화번호 (선택)"
-                    value={newCustomer.phone}
-                    onChange={(e) => setNewCustomer(prev => ({ ...prev, phone: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="email"
-                    placeholder="이메일 (선택)"
-                    value={newCustomer.email}
-                    onChange={(e) => setNewCustomer(prev => ({ ...prev, email: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="text"
-                    placeholder="특이사항 (선택)"
-                    value={newCustomer.notes}
-                    onChange={(e) => setNewCustomer(prev => ({ ...prev, notes: e.target.value }))}
-                    className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                  />
+              <div className="flex gap-3">
+                <div className="w-[100px]"></div>
+                <div className="flex-1 space-y-4 p-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-gray-900">{t('new_customer_info')}</h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewCustomer(false)}
+                      className="text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      {t('cancel')}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      placeholder={t('customer_name_label')}
+                      value={newCustomer.name}
+                      onChange={(e) => setNewCustomer(prev => ({ ...prev, name: e.target.value }))}
+                      className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
+                      required
+                    />
+                    <input
+                      type="tel"
+                      placeholder={t('phone_number_optional')}
+                      value={newCustomer.phone}
+                      onChange={(e) => setNewCustomer(prev => ({ ...prev, phone: e.target.value }))}
+                      className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                    <input
+                      type="email"
+                      placeholder={t('email_optional')}
+                      value={newCustomer.email}
+                      onChange={(e) => setNewCustomer(prev => ({ ...prev, email: e.target.value }))}
+                      className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                    <input
+                      type="text"
+                      placeholder={t('notes_optional')}
+                      value={newCustomer.notes}
+                      onChange={(e) => setNewCustomer(prev => ({ ...prev, notes: e.target.value }))}
+                      className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm"
+                    />
+                  </div>
                 </div>
               </div>
             )}
           </div>
 
+          {/* 구분선 */}
+          <div className="border-t border-gray-200"></div>
+
           {/* 날짜 및 시간 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="flex items-center gap-3">
+            <label className="w-[100px] text-sm font-medium text-gray-700 whitespace-nowrap">
               <Calendar className="w-4 h-4 inline mr-1" />
-              예약 날짜 및 시간
+              {t('date_time_label')}
             </label>
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-1">
               {/* 날짜 선택 - 전체의 50% */}
               <div className="flex-[2] relative" ref={calendarRef}>
-                <label className="block text-xs text-gray-500 mb-1">날짜</label>
                 <button
                   type="button"
                   onClick={() => setShowCustomCalendar(!showCustomCalendar)}
-                  className="w-full h-12 px-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-left bg-white hover:bg-gray-50 relative flex items-center"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-left bg-white hover:bg-gray-50 relative flex items-center text-sm"
                 >
-                  {selectedAppointmentDate || '날짜 선택'}
+                  {selectedAppointmentDate || t('date_selection')}
                   <Calendar className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 </button>
 
@@ -471,12 +722,12 @@ export default function AppointmentModal({
                 {showCustomCalendar && (
                   <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 w-full">
                     {/* 달력 헤더 */}
-                    <div className="flex items-center justify-between p-3 border-b">
+                    <div className="flex items-center justify-between py-1 px-2 border-b">
                       <button type="button" onClick={goToPrevMonth} className="p-1 hover:bg-gray-100 rounded">
                         ←
                       </button>
                       <h3 className="font-medium">
-                        {format(calendarDate, 'yyyy년 M월', { locale: ko })}
+                        {format(calendarDate, language === 'ko' ? 'yyyy년 M월' : 'MMM yyyy', { locale: language === 'ko' ? ko : enUS })}
                       </h3>
                       <button type="button" onClick={goToNextMonth} className="p-1 hover:bg-gray-100 rounded">
                         →
@@ -513,27 +764,16 @@ export default function AppointmentModal({
                         )
                       })}
                     </div>
-
-                    <div className="p-3 border-t">
-                      <button
-                        type="button"
-                        onClick={() => setShowCustomCalendar(false)}
-                        className="w-full py-2 text-sm text-gray-600 hover:text-gray-800"
-                      >
-                        닫기
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>
 
               {/* 시 선택 - 전체의 25% */}
               <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">시</label>
                 <select
                   value={selectedHour}
                   onChange={(e) => setSelectedHour(e.target.value)}
-                  className="w-full h-12 px-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                   required
                 >
                   {generateHourOptions().map(hour => (
@@ -546,11 +786,10 @@ export default function AppointmentModal({
 
               {/* 분 선택 - 전체의 25% */}
               <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">분</label>
                 <select
                   value={selectedMinute}
                   onChange={(e) => setSelectedMinute(e.target.value)}
-                  className="w-full h-12 px-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                   required
                 >
                   {generateMinuteOptions().map(minute => (
@@ -564,56 +803,56 @@ export default function AppointmentModal({
           </div>
 
           {/* 서비스 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="flex items-center gap-3">
+            <label className="w-[100px] text-sm font-medium text-gray-700 whitespace-nowrap">
               <Scissors className="w-4 h-4 inline mr-1" />
-              서비스
+              {t('service_label')}
             </label>
             <select
               value={formData.service_id}
               onChange={(e) => setFormData(prev => ({ ...prev, service_id: e.target.value }))}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
               required
             >
-              <option value="">서비스 선택</option>
+              <option value="">{t('service_selection')}</option>
               {services.map(service => (
                 <option key={service.id} value={service.id}>
-                  {service.name} - {service.price.toLocaleString()}원 ({service.duration}분)
+                  {service.name} - {formatCurrency(service.price)} ({service.duration}{t('minutes')})
                 </option>
               ))}
             </select>
           </div>
 
           {/* 담당자 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              담당자 (선택)
+          <div className="flex items-center gap-3">
+            <label className="w-[100px] text-sm font-medium text-gray-700 whitespace-nowrap">
+              {t('staff_label')}
             </label>
             <select
-              value={formData.staff_id}
+              value={formData.staff_id || ''}
               onChange={(e) => setFormData(prev => ({ ...prev, staff_id: e.target.value }))}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
             >
-              <option value="">담당자 선택</option>
+              <option value="">{t('staff_selection')}</option>
               {staff.map(member => (
                 <option key={member.id} value={member.id}>
-                  {member.name} ({member.role === 'admin' ? '관리자' : '직원'})
+                  {member.name} ({member.role === 'admin' ? t('admin_role') : t('staff_role')})
                 </option>
               ))}
             </select>
           </div>
 
           {/* 메모 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              메모 (선택)
+          <div className="flex items-start gap-3">
+            <label className="w-[100px] text-sm font-medium text-gray-700 whitespace-nowrap pt-2">
+              {t('memo_label')}
             </label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              placeholder="특이사항이나 요청사항을 입력해주세요..."
-              rows={3}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+              placeholder={t('notes_placeholder')}
+              rows={2}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none text-sm"
             />
           </div>
 
@@ -627,18 +866,39 @@ export default function AppointmentModal({
               }}
               className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              취소
+              {t('cancel')}
             </button>
             <button
               type="submit"
               disabled={loading || (!formData.customer_id && !showNewCustomer)}
               className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              {loading ? '저장 중...' : (mode === 'edit' ? '수정' : '저장')}
+              {loading ? t('saving') : (mode === 'edit' ? t('update') : t('save'))}
             </button>
           </div>
         </form>
       </div>
-    </div>
+      </div>
+
+      {/* 에러 모달 */}
+      <ErrorModal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
+        title={errorModal.title}
+        message={errorModal.message}
+        details={errorModal.details}
+        type={errorModal.type}
+      />
+
+      {/* 중복 고객 모달 */}
+      <DuplicateCustomerModal
+        isOpen={duplicateModal.isOpen}
+        onClose={() => setDuplicateModal({ isOpen: false, existingCustomers: [] })}
+        newCustomerData={newCustomer}
+        existingCustomers={duplicateModal.existingCustomers}
+        onUseExisting={handleUseExistingCustomer}
+        onReEnterInfo={handleReEnterInfo}
+      />
+    </>
   )
 }
