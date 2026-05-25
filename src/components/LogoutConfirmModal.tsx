@@ -34,12 +34,6 @@ export default function LogoutConfirmModal({ isOpen, onClose, onConfirm }: Logou
         {/* 콘텐츠 */}
         <div className="p-6 space-y-4">
           <p className="text-gray-700 font-medium">{t('logout_confirm_message')}</p>
-
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-            <p className="text-orange-700 text-sm">
-              ⚠️ {t('logout_warning') || '현재 작업 중인 내용이 저장되지 않을 수 있습니다.'}
-            </p>
-          </div>
         </div>
 
         {/* 버튼 */}

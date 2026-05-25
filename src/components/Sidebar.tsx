@@ -1,15 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, Users, Menu, X, LogOut } from 'lucide-react'
+import { Calendar, Users, Settings, UserCog, DollarSign, Menu, X, LogOut } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useAuth } from '@/contexts/AuthContext'
 import LanguageSelector from '@/components/LanguageSelector'
 import LogoutConfirmModal from '@/components/LogoutConfirmModal'
 
 interface SidebarProps {
-  currentPage: 'schedule' | 'customers'
-  onPageChange: (page: 'schedule' | 'customers') => void
+  currentPage: 'schedule' | 'customers' | 'services' | 'staff' | 'revenue'
+  onPageChange: (page: 'schedule' | 'customers' | 'services' | 'staff' | 'revenue') => void
   isCollapsed: boolean
   onToggleCollapse: (collapsed: boolean) => void
 }
@@ -19,7 +19,7 @@ export default function Sidebar({ currentPage, onPageChange, isCollapsed, onTogg
   const { user, logout } = useAuth()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
 
-  const menuItems = [
+  const baseMenuItems = [
     {
       id: 'schedule' as const,
       label: t('schedule_management'),
@@ -33,6 +33,31 @@ export default function Sidebar({ currentPage, onPageChange, isCollapsed, onTogg
       active: currentPage === 'customers'
     }
   ]
+
+  const adminMenuItems = [
+    {
+      id: 'services' as const,
+      label: t('service_management'),
+      icon: Settings,
+      active: currentPage === 'services'
+    },
+    {
+      id: 'staff' as const,
+      label: t('staff_management'),
+      icon: UserCog,
+      active: currentPage === 'staff'
+    },
+    {
+      id: 'revenue' as const,
+      label: t('revenue_management'),
+      icon: DollarSign,
+      active: currentPage === 'revenue'
+    }
+  ]
+
+  const menuItems = user?.role === 'admin'
+    ? [...baseMenuItems, ...adminMenuItems]
+    : baseMenuItems
 
   return (
     <>

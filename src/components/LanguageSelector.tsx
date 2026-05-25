@@ -6,9 +6,10 @@ import { useLanguage } from '@/contexts/LanguageContext'
 
 interface LanguageSelectorProps {
   isCollapsed?: boolean
+  isLoginPage?: boolean
 }
 
-export default function LanguageSelector({ isCollapsed = false }: LanguageSelectorProps) {
+export default function LanguageSelector({ isCollapsed = false, isLoginPage = false }: LanguageSelectorProps) {
   const { language, setLanguage } = useLanguage()
   const [isOpen, setIsOpen] = useState(false)
 
@@ -19,11 +20,29 @@ export default function LanguageSelector({ isCollapsed = false }: LanguageSelect
 
   const currentLanguage = languages.find(lang => lang.code === language)
 
+  // 로그인 페이지용 심플한 토글
+  if (isLoginPage) {
+    return (
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
+          className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 bg-white/80 backdrop-blur-sm rounded-full border border-white/30 shadow-sm hover:shadow-md transition-all duration-200"
+          title={`Switch to ${language === 'ko' ? 'English' : '한국어'}`}
+        >
+          <span className="text-base">{currentLanguage?.flag}</span>
+          <span className="font-medium">{language === 'ko' ? 'KR' : 'US'}</span>
+        </button>
+      </div>
+    )
+  }
+
   if (isCollapsed) {
     // 접힌 상태: 국기만 보여주고 토글 방식으로 동작
     return (
       <div className="flex justify-center">
         <button
+          type="button"
           onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
           className="w-10 h-10 flex items-center justify-center text-lg hover:bg-gray-100 rounded-lg transition-colors"
           title={currentLanguage?.name}
@@ -37,6 +56,7 @@ export default function LanguageSelector({ isCollapsed = false }: LanguageSelect
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors w-full"
       >
@@ -59,6 +79,7 @@ export default function LanguageSelector({ isCollapsed = false }: LanguageSelect
             {languages.map((lang) => (
               <button
                 key={lang.code}
+                type="button"
                 onClick={() => {
                   setLanguage(lang.code)
                   setIsOpen(false)

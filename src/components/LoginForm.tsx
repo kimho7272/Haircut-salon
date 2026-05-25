@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Lock, User, Eye, EyeOff, Scissors, Sparkles } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
+import LanguageSelector from '@/components/LanguageSelector'
 
 export default function LoginForm() {
   const { login } = useAuth()
@@ -55,7 +56,7 @@ export default function LoginForm() {
               <Sparkles className="h-8 w-8 text-purple-500" />
             </div>
             <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-2">
-              Welcome to
+              {t('welcome_to')}
             </h1>
             <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-700 to-pink-700 mb-4">
               {salonName}
@@ -72,10 +73,10 @@ export default function LoginForm() {
               <Lock className="h-6 w-6 text-blue-600" />
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              Sign in to your account
+              {t('sign_in_to_account')}
             </h3>
             <p className="text-sm text-gray-600 mb-6">
-              {salonName} Management System
+              {salonName} {t('management_system')}
             </p>
 
             <form className="space-y-6" onSubmit={handleSubmit}>
@@ -132,6 +133,11 @@ export default function LoginForm() {
                 </div>
               </div>
 
+              {/* 언어 선택기 */}
+              <div className="flex justify-end">
+                <LanguageSelector isCollapsed={false} />
+              </div>
+
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                   {error}
@@ -144,7 +150,7 @@ export default function LoginForm() {
                   disabled={loading}
                   className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
                 >
-                  {loading ? 'Signing in...' : 'Sign in'}
+                  {loading ? t('signing_in') : t('sign_in')}
                 </button>
               </div>
             </form>
