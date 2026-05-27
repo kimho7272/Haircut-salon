@@ -365,20 +365,31 @@ export default function SchedulePage() {
     }
   }
 
-  // 예약이 완료되었는지 확인하는 함수
+  // 예약 상태 계산 함수 (4단계 상태 관리)
+  const getAppointmentStatus = (appointment: AppointmentWithRelations) => {
+    if (appointment.status === 'cancelled') return 'cancelled'
+    if (appointment.status === 'completed') return 'completed'
+
+    const appointmentStart = new Date(`${appointment.appointment_date}T${appointment.appointment_time}`)
+    const now = new Date()
+
+    // 시작 시간이 지났으면 auto_completed 또는 completed
+    if (appointmentStart <= now) {
+      // 결제 정보가 있으면 completed, 없으면 auto_completed
+      if (appointment.payment_amount && appointment.payment_amount > 0) {
+        return 'completed'
+      } else {
+        return 'auto_completed'
+      }
+    }
+
+    return 'scheduled'
+  }
+
+  // 예약이 완료되었는지 확인하는 함수 (completed + auto_completed)
   const isAppointmentCompleted = (appointment: AppointmentWithRelations) => {
-    if (appointment.status === 'completed') {
-      return true
-    }
-
-    if (appointment.status === 'scheduled') {
-      // 예약 날짜와 시간을 현재 시간과 비교
-      const appointmentDateTime = new Date(`${appointment.appointment_date}T${appointment.appointment_time}`)
-      const now = new Date()
-      return appointmentDateTime < now
-    }
-
-    return false
+    const status = getAppointmentStatus(appointment)
+    return status === 'completed' || status === 'auto_completed'
   }
 
   // 미국 공휴일 확인 함수
@@ -450,13 +461,19 @@ export default function SchedulePage() {
   }
 
   const getStatusColor = (appointment: AppointmentWithRelations) => {
-    if (appointment.status === 'cancelled') {
-      return 'bg-red-100 text-red-800 border-red-200'
+    const status = getAppointmentStatus(appointment)
+
+    switch (status) {
+      case 'cancelled':
+        return 'bg-red-100 text-red-800 border-red-200'
+      case 'completed':
+        return 'bg-blue-100 text-blue-800 border-blue-200'  // 결제 완료: 파란색
+      case 'auto_completed':
+        return 'bg-blue-100 text-blue-800 border-red-500 border-2'  // 결제 미입력: 파란 배경 + 빨간 테두리
+      case 'scheduled':
+      default:
+        return 'bg-green-100 text-green-800 border-green-200'  // 예약됨: 초록색
     }
-    if (isAppointmentCompleted(appointment)) {
-      return 'bg-blue-100 text-blue-800 border-blue-200'  // Completed: 파란색
-    }
-    return 'bg-green-100 text-green-800 border-green-200'  // Scheduled: 초록색
   }
 
   return (

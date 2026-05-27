@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { X, User, Phone, Calendar, Clock, Scissors, CreditCard, Search, ChevronDown, ChevronUp, History } from 'lucide-react'
 import { format } from 'date-fns'
 import { ko, enUS } from 'date-fns/locale'
-import { getServices, getStaff, getCustomers, saveCustomer, saveAppointment, updateAppointment, getCustomerHistory, type AppointmentWithRelations } from '@/utils/supabaseService'
+import { getActiveServices, getActiveStaff, getCustomers, saveCustomer, saveAppointment, updateAppointment, getCustomerHistory, type AppointmentWithRelations } from '@/utils/supabaseService'
 import { type Service, type Staff, type Customer } from '@/lib/supabase'
 import ErrorModal, { createPhoneErrorModal, createNamePhoneErrorModal, createGeneralErrorModal } from './ErrorModal'
 import DuplicateCustomerModal from './DuplicateCustomerModal'
@@ -36,7 +36,9 @@ export default function AppointmentModal({
     service_ids: [] as string[], // Changed to array for multiple services
     custom_duration: 0, // Custom duration input
     appointment_time: '10:00',
-    notes: ''
+    notes: '',
+    payment_method: 'cash' as 'cash' | 'card' | '',
+    payment_amount: 0
   })
 
   // 시간 선택을 위한 별도 상태
@@ -44,14 +46,20 @@ export default function AppointmentModal({
   const [selectedMinute, setSelectedMinute] = useState('00')
 
   // 날짜 선택을 위한 상태
+  const safeSelectedDate = selectedDate && !isNaN(selectedDate.getTime()) ? selectedDate : new Date()
   const [selectedAppointmentDate, setSelectedAppointmentDate] = useState(
-    format(selectedDate, 'yyyy-MM-dd')
+    format(safeSelectedDate, 'yyyy-MM-dd')
   )
   const [showCustomCalendar, setShowCustomCalendar] = useState(false)
   const [calendarDate, setCalendarDate] = useState(new Date(selectedAppointmentDate))
 
   // 외부 클릭시 캘린더 닫기를 위한 ref
   const calendarRef = useRef<HTMLDivElement>(null)
+
+  // Customer Name 필드 포커스를 위한 ref
+  const customerNameRef = useRef<HTMLInputElement>(null)
+  // Search Customer 필드 포커스를 위한 ref
+  const searchCustomerRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -110,6 +118,118 @@ export default function AppointmentModal({
     setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1))
   }
 
+  // 미국 국경일 확인 함수
+  const isUSHoliday = (date: Date) => {
+    const month = date.getMonth() + 1 // 1-12
+    const day = date.getDate()
+    const year = date.getFullYear()
+
+    // 고정 날짜 국경일
+    const fixedHolidays = [
+      { month: 1, day: 1 },   // New Year's Day
+      { month: 7, day: 4 },   // Independence Day
+      { month: 11, day: 11 }, // Veterans Day
+      { month: 12, day: 25 }  // Christmas Day
+    ]
+
+    // 고정 날짜 확인
+    if (fixedHolidays.some(holiday => holiday.month === month && holiday.day === day)) {
+      return true
+    }
+
+    // 계산이 필요한 국경일들
+
+    // Memorial Day (5월 마지막 월요일)
+    if (month === 5) {
+      const memorialDay = getLastMondayOfMonth(year, 5)
+      if (day === memorialDay) return true
+    }
+
+    // Labor Day (9월 첫째 월요일)
+    if (month === 9) {
+      const laborDay = getFirstMondayOfMonth(year, 9)
+      if (day === laborDay) return true
+    }
+
+    // Martin Luther King Jr. Day (1월 셋째 월요일)
+    if (month === 1) {
+      const mlkDay = getNthMondayOfMonth(year, 1, 3)
+      if (day === mlkDay) return true
+    }
+
+    // Presidents' Day (2월 셋째 월요일)
+    if (month === 2) {
+      const presidentsDay = getNthMondayOfMonth(year, 2, 3)
+      if (day === presidentsDay) return true
+    }
+
+    // Columbus Day (10월 둘째 월요일)
+    if (month === 10) {
+      const columbusDay = getNthMondayOfMonth(year, 10, 2)
+      if (day === columbusDay) return true
+    }
+
+    // Thanksgiving (11월 넷째 목요일)
+    if (month === 11) {
+      const thanksgiving = getNthThursdayOfMonth(year, 11, 4)
+      if (day === thanksgiving) return true
+    }
+
+    return false
+  }
+
+  // 헬퍼 함수들
+  const getLastMondayOfMonth = (year: number, month: number) => {
+    const lastDay = new Date(year, month, 0) // 해당 월의 마지막 날
+    for (let day = lastDay.getDate(); day >= 1; day--) {
+      const testDate = new Date(year, month - 1, day)
+      if (testDate.getDay() === 1) { // 월요일
+        return day
+      }
+    }
+    return 1
+  }
+
+  const getFirstMondayOfMonth = (year: number, month: number) => {
+    for (let day = 1; day <= 7; day++) {
+      const testDate = new Date(year, month - 1, day)
+      if (testDate.getDay() === 1) { // 월요일
+        return day
+      }
+    }
+    return 1
+  }
+
+  const getNthMondayOfMonth = (year: number, month: number, nth: number) => {
+    let mondayCount = 0
+    for (let day = 1; day <= 31; day++) {
+      const testDate = new Date(year, month - 1, day)
+      if (testDate.getMonth() !== month - 1) break // 다음 달로 넘어감
+      if (testDate.getDay() === 1) { // 월요일
+        mondayCount++
+        if (mondayCount === nth) {
+          return day
+        }
+      }
+    }
+    return 1
+  }
+
+  const getNthThursdayOfMonth = (year: number, month: number, nth: number) => {
+    let thursdayCount = 0
+    for (let day = 1; day <= 31; day++) {
+      const testDate = new Date(year, month - 1, day)
+      if (testDate.getMonth() !== month - 1) break // 다음 달로 넘어감
+      if (testDate.getDay() === 4) { // 목요일
+        thursdayCount++
+        if (thursdayCount === nth) {
+          return day
+        }
+      }
+    }
+    return 1
+  }
+
   const [customers, setCustomers] = useState<Customer[]>([])
   const [searchCustomer, setSearchCustomer] = useState('')
   const [services, setServices] = useState<Service[]>([])
@@ -121,6 +241,12 @@ export default function AppointmentModal({
 
   // 실제 사용할 소요시간 (커스텀 입력이 있으면 커스텀, 없으면 계산된 시간)
   const finalDuration = formData.custom_duration > 0 ? formData.custom_duration : calculatedDuration
+
+  // 완료된 예약 여부 확인
+  const isCompletedAppointment = appointment && (
+    appointment.status === 'completed' ||
+    (appointment.status === 'scheduled' && new Date(appointment.appointment_date) < new Date(new Date().toDateString()))
+  )
   const [showNewCustomer, setShowNewCustomer] = useState(false)
   const [newCustomer, setNewCustomer] = useState({
     name: '',
@@ -149,6 +275,24 @@ export default function AppointmentModal({
   const [customerHistory, setCustomerHistory] = useState<AppointmentWithRelations[]>([])
   const [showHistory, setShowHistory] = useState(false)
   const [historyLoading, setHistoryLoading] = useState(false)
+
+  // Customer Name 필드 자동 포커스
+  useEffect(() => {
+    if (showNewCustomer && customerNameRef.current) {
+      setTimeout(() => {
+        customerNameRef.current?.focus()
+      }, 100)
+    }
+  }, [showNewCustomer])
+
+  // Search Customer 필드 자동 포커스 (New Appointment 창 열릴 때)
+  useEffect(() => {
+    if (isOpen && mode === 'add' && !showNewCustomer && searchCustomerRef.current) {
+      setTimeout(() => {
+        searchCustomerRef.current?.focus()
+      }, 100)
+    }
+  }, [isOpen, mode, showNewCustomer])
 
   useEffect(() => {
     if (isOpen) {
@@ -182,15 +326,20 @@ export default function AppointmentModal({
   // 고객 데이터 로딩 완료 후 예약 데이터 설정
   useEffect(() => {
     if (isOpen && appointment && mode === 'edit' && customers.length > 0) {
+      console.log('AppointmentModal - Raw appointment data received:', appointment)
+      console.log('AppointmentModal - appointment_time:', appointment.appointment_time)
+      console.log('AppointmentModal - appointment_date:', appointment.appointment_date)
+
       // 기존 고객이 고객 목록에 있는지 확인
       const existingCustomer = customers.find(c => c.id === appointment.customer_id)
 
-      const appointmentTime = appointment.appointment_time.slice(0, 5)
+      // 안전한 시간 파싱
+      const appointmentTime = appointment.appointment_time ? appointment.appointment_time.slice(0, 5) : '10:00'
       const [hour, minute] = appointmentTime.split(':')
 
-      setSelectedHour(hour)
-      setSelectedMinute(minute)
-      setSelectedAppointmentDate(appointment.appointment_date)
+      setSelectedHour(hour || '10')
+      setSelectedMinute(minute || '00')
+      setSelectedAppointmentDate(appointment.appointment_date || format(new Date(), 'yyyy-MM-dd'))
 
       // Get service IDs from the services array (new format) or fallback to old format
       let serviceIds: string[] = []
@@ -230,7 +379,9 @@ export default function AppointmentModal({
         service_ids: serviceIds,
         custom_duration: customDuration,
         appointment_time: appointmentTime,
-        notes: (appointment.notes || '').replace(/\n?\[MULTI_SERVICES\]:.*$/, '') // Hide technical info from user
+        notes: (appointment.notes || '').replace(/\n?\[MULTI_SERVICES\]:.*$/, ''), // Hide technical info from user
+        payment_method: appointment.payment_method || 'cash',
+        payment_amount: appointment.payment_amount || 0
       })
 
       // 고객명을 검색 필드에 표시
@@ -249,8 +400,8 @@ export default function AppointmentModal({
       // 병렬로 모든 데이터 가져오기
       const [customersData, servicesData, staffData] = await Promise.all([
         getCustomers(),
-        getServices(),
-        getStaff()
+        getActiveServices(), // 예약 시에는 활성 서비스만 표시
+        getActiveStaff() // 예약 시에는 활성 직원만 표시
       ])
 
       setCustomers(customersData)
@@ -368,6 +519,17 @@ export default function AppointmentModal({
       selectedServices: selectedServices.map(s => s.name)
     })
 
+    // 상태 결정 로직
+    let appointmentStatus = 'scheduled'
+    if (isCompletedAppointment) {
+      // 완료된 예약의 경우 결제 정보가 있으면 completed, 없으면 auto_completed
+      if (formData.payment_amount && formData.payment_amount > 0) {
+        appointmentStatus = 'completed'
+      } else {
+        appointmentStatus = 'auto_completed'
+      }
+    }
+
     const appointmentData = {
       customer_id: customerId,
       staff_id: selectedStaff?.id || null,
@@ -376,7 +538,12 @@ export default function AppointmentModal({
       appointment_time: formData.appointment_time,
       duration: finalDuration,
       notes: formData.notes,
-      status: 'scheduled' as const
+      status: appointmentStatus as 'scheduled' | 'auto_completed' | 'completed' | 'cancelled',
+      // 완료된 예약인 경우 결제 정보 포함
+      ...(isCompletedAppointment && {
+        payment_method: formData.payment_method || undefined,
+        payment_amount: formData.payment_amount || undefined
+      })
     }
 
     let result: AppointmentWithRelations
@@ -477,11 +644,13 @@ export default function AppointmentModal({
   const resetForm = () => {
     setFormData({
       customer_id: '',
-      staff_id: '',
+      staff_id: staff.length > 0 ? staff[0].id : '',
       service_ids: services.length > 0 ? [services[0].id] : [],
       custom_duration: 0,
       appointment_time: '10:00',
-      notes: ''
+      notes: '',
+      payment_method: 'cash',
+      payment_amount: 0
     })
     setSelectedHour('10')
     setSelectedMinute('00')
@@ -513,9 +682,13 @@ export default function AppointmentModal({
       <div className="fixed inset-0 z-50 overflow-y-auto bg-transparent flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl border-2 border-gray-400 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* 헤더 */}
-        <div className="flex items-center justify-between py-3 px-4 border-b">
+        <div className="flex items-center justify-between py-2 px-4 border-b">
           <h2 className="text-xl font-bold text-gray-900">
-            {mode === 'edit' ? t('appointment_edit_title') : t('appointment_add_title')}
+            {mode === 'edit'
+              ? isCompletedAppointment
+                ? t('completed_appointment_edit')
+                : t('appointment_edit_title')
+              : t('appointment_add_title')}
           </h2>
           <button
             onClick={() => {
@@ -528,11 +701,11 @@ export default function AppointmentModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* 고객 정보 섹션 */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             {!showNewCustomer ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {/* 고객 정보 + 이름 검색 필드 */}
                 <div className="flex items-center gap-3">
                   <label className="w-[100px] text-sm font-medium text-gray-700 whitespace-nowrap">
@@ -541,6 +714,7 @@ export default function AppointmentModal({
                   </label>
                   <div className="relative flex-1">
                     <input
+                      ref={searchCustomerRef}
                       type="text"
                       placeholder={t('search_customer_name_phone')}
                       value={searchCustomer}
@@ -618,13 +792,13 @@ export default function AppointmentModal({
                   </button>
 
                   {showHistory && (
-                    <div className="mt-3 bg-gray-50 rounded-lg p-3 max-h-60 overflow-y-auto">
+                    <div className="mt-2 bg-gray-50 rounded-lg p-2 max-h-48 overflow-y-auto">
                     {historyLoading ? (
                       <div className="text-center py-4 text-gray-500">
                         {t('loading_history')}
                       </div>
                     ) : customerHistory.length > 0 ? (
-                      <div className="space-y-1">
+                      <div className="space-y-0.5">
                         {customerHistory.map((appointment, index) => {
                           const appointmentDate = new Date(appointment.appointment_date)
                           const isCompleted = appointment.status === 'completed' ||
@@ -637,23 +811,13 @@ export default function AppointmentModal({
                             >
                               <div className="flex items-center gap-3">
                                 <span className="text-gray-600 font-mono">
-                                  {appointmentDate.toLocaleDateString('ko-KR', {
-                                    month: '2-digit',
-                                    day: '2-digit'
-                                  })}
+                                  {`${String(appointmentDate.getMonth() + 1).padStart(2, '0')}/${String(appointmentDate.getDate()).padStart(2, '0')}`}
                                 </span>
-                                <div className="flex flex-col gap-1">
+                                <div>
                                   {appointment.services && appointment.services.length > 0 ? (
-                                    appointment.services.map((service, idx) => (
-                                      <div key={service.id} className="flex items-center gap-2">
-                                        <span className="font-medium text-gray-900">
-                                          {service.name}
-                                        </span>
-                                        <span className="text-gray-600 text-xs">
-                                          {formatCurrency(service.price)}
-                                        </span>
-                                      </div>
-                                    ))
+                                    <span className="font-medium text-gray-900">
+                                      {appointment.services.map(service => service.name).join(', ')}
+                                    </span>
                                   ) : (
                                     <span className="font-medium text-gray-900">
                                       {t('no_service_info')}
@@ -711,7 +875,7 @@ export default function AppointmentModal({
             ) : (
               <div className="flex gap-3">
                 <div className="w-[100px]"></div>
-                <div className="flex-1 space-y-4 p-4 rounded-lg">
+                <div className="flex-1 space-y-3 p-3 rounded-lg">
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium text-gray-900">{t('new_customer_info')}</h4>
                     <button
@@ -722,8 +886,9 @@ export default function AppointmentModal({
                       {t('cancel')}
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <input
+                      ref={customerNameRef}
                       type="text"
                       placeholder={t('customer_name_label')}
                       value={newCustomer.name}
@@ -767,7 +932,7 @@ export default function AppointmentModal({
               <Calendar className="w-4 h-4 inline mr-1" />
               {t('date_time_label')}
             </label>
-            <div className="flex gap-3 flex-1">
+            <div className="flex gap-2 flex-1">
               {/* 날짜 선택 - 전체의 50% */}
               <div className="flex-[2] relative" ref={calendarRef}>
                 <button
@@ -796,9 +961,16 @@ export default function AppointmentModal({
                     </div>
 
                     {/* 요일 헤더 */}
-                    <div className="grid grid-cols-7 text-center text-xs text-gray-500 py-2">
-                      {['일', '월', '화', '수', '목', '금', '토'].map(day => (
-                        <div key={day} className="py-1">{day}</div>
+                    <div className="grid grid-cols-7 text-center text-xs py-2">
+                      {(language === 'ko'
+                        ? ['일', '월', '화', '수', '목', '금', '토']
+                        : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                      ).map((day, index) => (
+                        <div key={day} className={`py-1 ${
+                          index === 0 ? 'text-red-600' :
+                          index === 6 ? 'text-blue-600' :
+                          'text-gray-500'
+                        }`}>{day}</div>
                       ))}
                     </div>
 
@@ -807,6 +979,20 @@ export default function AppointmentModal({
                       {getDaysInMonth(calendarDate).map((dayInfo, index) => {
                         const isSelected = selectedAppointmentDate === format(dayInfo.date, 'yyyy-MM-dd')
                         const isToday = format(dayInfo.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                        const dayOfWeek = dayInfo.date.getDay() // 0=Sunday, 6=Saturday
+                        const isSunday = dayOfWeek === 0
+                        const isSaturday = dayOfWeek === 6
+                        const isHoliday = isUSHoliday(dayInfo.date)
+
+                        // 색상 결정 로직
+                        let textColor = 'text-gray-700'
+                        if (!dayInfo.isCurrentMonth) {
+                          textColor = 'text-gray-300'
+                        } else if (isSunday || isHoliday) {
+                          textColor = 'text-red-600'
+                        } else if (isSaturday) {
+                          textColor = 'text-blue-600'
+                        }
 
                         return (
                           <button
@@ -815,7 +1001,7 @@ export default function AppointmentModal({
                             onClick={() => handleDateSelect(dayInfo.date)}
                             className={`
                               p-2 text-sm hover:bg-blue-100 transition-colors
-                              ${!dayInfo.isCurrentMonth ? 'text-gray-300' : 'text-gray-700'}
+                              ${textColor}
                               ${isSelected ? 'bg-blue-600 text-white hover:bg-blue-700' : ''}
                               ${isToday && !isSelected ? 'bg-blue-100 text-blue-600' : ''}
                             `}
@@ -864,16 +1050,16 @@ export default function AppointmentModal({
           </div>
 
           {/* 서비스 */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-start gap-3">
               <label className="w-[100px] text-sm font-medium text-gray-700 whitespace-nowrap pt-2">
                 <Scissors className="w-4 h-4 inline mr-1" />
                 {t('service_label')}
               </label>
               <div className="flex-1">
-                <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                <div className="grid grid-cols-2 gap-1 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
                   {services.map(service => (
-                    <label key={service.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                    <label key={service.id} className="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
                       <input
                         type="checkbox"
                         checked={formData.service_ids.includes(service.id)}
@@ -892,9 +1078,6 @@ export default function AppointmentModal({
                       <span className="text-sm text-gray-900 flex-1">
                         {service.name} ({service.duration}{t('minutes')})
                       </span>
-                      <span className="text-xs text-gray-500">
-                        {formatCurrency(service.price)}
-                      </span>
                     </label>
                   ))}
                 </div>
@@ -909,7 +1092,7 @@ export default function AppointmentModal({
               <label className="w-[100px] text-sm font-medium text-gray-700 whitespace-nowrap">
                 {t('duration_label')}
               </label>
-              <div className="flex-1 flex items-center gap-3">
+              <div className="flex-1 flex items-center gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">
                     {t('suggested')}: {calculatedDuration}{t('minutes')}
@@ -919,7 +1102,7 @@ export default function AppointmentModal({
                   type="number"
                   min="0"
                   max="480"
-                  step="10"
+                  step="5"
                   placeholder={calculatedDuration.toString()}
                   value={formData.custom_duration || ''}
                   onChange={(e) => setFormData(prev => ({
@@ -946,6 +1129,7 @@ export default function AppointmentModal({
               onChange={(e) => setFormData(prev => ({ ...prev, staff_id: e.target.value }))}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
             >
+              <option value="">{t('staff_not_specified')}</option>
               {staff
                 .sort((a, b) => {
                   // Staff 역할을 먼저, Admin 역할을 나중에
@@ -975,8 +1159,70 @@ export default function AppointmentModal({
             />
           </div>
 
+          {/* 결제 정보 (완료된 예약만) */}
+          {isCompletedAppointment && (
+            <>
+              {/* 구분선 */}
+              <div className="border-t border-gray-200"></div>
+
+              {/* 결제 정보 */}
+              <div className="flex items-center gap-3">
+                <label className="w-[100px] text-sm font-medium text-gray-700 whitespace-nowrap">
+                  <CreditCard className="w-4 h-4 inline mr-1" />
+                  {t('payment_method')}
+                </label>
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="flex gap-4">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="payment_method"
+                        value="cash"
+                        checked={formData.payment_method === 'cash'}
+                        onChange={(e) => setFormData(prev => ({ ...prev, payment_method: e.target.value as 'cash' | 'card' }))}
+                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">{t('cash')}</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="payment_method"
+                        value="card"
+                        checked={formData.payment_method === 'card'}
+                        onChange={(e) => setFormData(prev => ({ ...prev, payment_method: e.target.value as 'cash' | 'card' }))}
+                        className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                      />
+                      <span className="ml-2 text-sm text-gray-700">{t('card')}</span>
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2 ml-auto">
+                    {process.env.NEXT_PUBLIC_CURRENCY === 'USD' && (
+                      <span className="text-sm text-gray-600">$</span>
+                    )}
+                    <input
+                      type="number"
+                      min="0"
+                      step={process.env.NEXT_PUBLIC_CURRENCY === 'KRW' ? '1000' : '1'}
+                      value={formData.payment_amount || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        payment_amount: parseInt(e.target.value) || 0
+                      }))}
+                      className="w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                      placeholder="0"
+                    />
+                    {process.env.NEXT_PUBLIC_CURRENCY === 'KRW' && (
+                      <span className="text-sm text-gray-600">원</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
           {/* 버튼 */}
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-3">
             <button
               type="button"
               onClick={() => {
