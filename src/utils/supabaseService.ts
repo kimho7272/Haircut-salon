@@ -313,6 +313,8 @@ export const updateAppointment = async (
     baseUpdates.notes.replace(/\n?\[MULTI_SERVICES\]:.*$/, '') : undefined
 
   console.log('Updating appointment with service_id:', firstServiceId, 'service_ids:', service_ids)
+  console.log('Update data:', baseUpdates)
+  console.log('Full update data:', updates)
 
   const updateData: any = {
     ...baseUpdates,
@@ -323,6 +325,8 @@ export const updateAppointment = async (
   if (cleanNotes !== undefined) {
     updateData.notes = cleanNotes
   }
+
+  console.log('Final updateData being sent to supabase:', updateData)
 
   const { data: updatedAppointment, error: updateError } = await supabase
     .from('appointments')
@@ -337,6 +341,8 @@ export const updateAppointment = async (
 
   if (updateError) {
     console.error('예약 업데이트 실패:', updateError)
+    console.error('Error details:', JSON.stringify(updateError, null, 2))
+    console.error('Update data that failed:', updateData)
     throw updateError
   }
 
@@ -515,12 +521,11 @@ export const updateCustomer = async (
   return data
 }
 
-// 직원 조회
+// 직원 조회 (모든 직원 - 활성/비활성 포함)
 export const getStaff = async (): Promise<Staff[]> => {
   const { data, error } = await supabase
     .from('staff')
     .select('*')
-    .eq('active', true)
     .order('name', { ascending: true })
 
   if (error) {
@@ -531,12 +536,27 @@ export const getStaff = async (): Promise<Staff[]> => {
   return data || []
 }
 
-// 서비스 조회
+// 활성 직원만 조회 (예약 모달 등에서 사용)
+export const getActiveStaff = async (): Promise<Staff[]> => {
+  const { data, error } = await supabase
+    .from('staff')
+    .select('*')
+    .eq('active', true)
+    .order('name', { ascending: true })
+
+  if (error) {
+    console.error('활성 직원 조회 실패:', error)
+    throw error
+  }
+
+  return data || []
+}
+
+// 서비스 조회 (모든 서비스 - 활성/비활성 포함)
 export const getServices = async (): Promise<Service[]> => {
   const { data, error } = await supabase
     .from('services')
     .select('*')
-    .eq('active', true)
     .order('name', { ascending: true })
 
   if (error) {
@@ -545,4 +565,141 @@ export const getServices = async (): Promise<Service[]> => {
   }
 
   return data || []
+}
+
+// 활성 서비스만 조회 (예약 모달 등에서 사용)
+export const getActiveServices = async (): Promise<Service[]> => {
+  const { data, error } = await supabase
+    .from('services')
+    .select('*')
+    .eq('active', true)
+    .order('name', { ascending: true })
+
+  if (error) {
+    console.error('활성 서비스 조회 실패:', error)
+    throw error
+  }
+
+  return data || []
+}
+
+// 서비스 저장
+export const saveService = async (
+  serviceData: Omit<Service, 'id' | 'created_at'>
+): Promise<Service> => {
+  const { data, error } = await supabase
+    .from('services')
+    .insert([serviceData])
+    .select()
+    .single()
+
+  if (error) {
+    console.error('서비스 저장 실패:', error)
+    throw error
+  }
+
+  return data
+}
+
+// 서비스 정보 업데이트
+export const updateService = async (
+  id: string,
+  updates: Partial<Omit<Service, 'id' | 'created_at'>>
+): Promise<Service> => {
+  const { data, error } = await supabase
+    .from('services')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('서비스 정보 업데이트 실패:', error)
+    throw error
+  }
+
+  return data
+}
+
+// 직원 저장
+export const saveStaff = async (
+  staffData: Omit<Staff, 'id' | 'created_at'>
+): Promise<Staff> => {
+  const { data, error } = await supabase
+    .from('staff')
+    .insert([staffData])
+    .select()
+    .single()
+
+  if (error) {
+    console.error('직원 저장 실패:', error)
+    throw error
+  }
+
+  return data
+}
+
+// 직원 정보 업데이트
+export const updateStaff = async (
+  id: string,
+  updates: Partial<Omit<Staff, 'id' | 'created_at'>>
+): Promise<Staff> => {
+  const { data, error } = await supabase
+    .from('staff')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('직원 정보 업데이트 실패:', error)
+    throw error
+  }
+
+  return data
+}
+
+// 서비스 삭제
+export const deleteService = async (id: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('services')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error('서비스 삭제 실패:', error)
+    throw error
+  }
+
+  return true
+}
+
+// 직원 삭제
+export const deleteStaff = async (id: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('staff')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error('직원 삭제 실패:', error)
+    throw error
+  }
+
+  return true
+}
+
+// 고객 삭제
+export const deleteCustomer = async (id: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('customers')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error('고객 삭제 실패:', error)
+    throw error
+  }
+
+  return true
 }

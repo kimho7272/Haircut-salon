@@ -37,7 +37,7 @@ export default function DuplicateCustomerModal({
     >
       <div className="bg-white rounded-lg shadow-xl border-2 border-gray-400 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* 헤더 */}
-        <div className="flex items-center justify-between p-6 border-b border-yellow-200 bg-yellow-50">
+        <div className="flex items-center justify-between py-2 px-4 border-b border-yellow-200 bg-yellow-50">
           <h2 className="text-lg font-bold text-yellow-800 flex items-center gap-2">
             <User className="w-5 h-5 text-yellow-600" />
             유사한 고객 정보 발견

@@ -68,7 +68,7 @@ export default function ErrorModal({
     >
       <div className="bg-white rounded-lg shadow-xl border-2 border-gray-400 max-w-md w-full animate-in fade-in duration-200">
         {/* 헤더 */}
-        <div className={`flex items-center justify-between p-6 border-b ${colors.headerBorder} ${colors.headerBg}`}>
+        <div className={`flex items-center justify-between py-2 px-4 border-b ${colors.headerBorder} ${colors.headerBg}`}>
           <h2 className={`text-lg font-bold ${colors.headerText} flex items-center gap-2`}>
             <AlertCircle className={`w-5 h-5 ${colors.iconColor}`} />
             {title}

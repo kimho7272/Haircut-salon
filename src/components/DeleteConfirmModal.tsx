@@ -29,7 +29,7 @@ export default function DeleteConfirmModal({
     <div className="fixed inset-0 z-50 overflow-y-auto bg-transparent flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl border-2 border-gray-400 max-w-md w-full">
         {/* 헤더 */}
-        <div className="flex items-center justify-between p-6 border-b border-red-200 bg-red-50">
+        <div className="flex items-center justify-between py-2 px-4 border-b border-red-200 bg-red-50">
           <h2 className="text-lg font-bold text-red-800 flex items-center gap-2">
             <Calendar className="w-5 h-5" />
             {t('delete_appointment_confirm')}

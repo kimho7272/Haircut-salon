@@ -51,6 +51,9 @@ export type Appointment = {
   status: 'scheduled' | 'completed' | 'cancelled'
   notes?: string
   created_at: string
+  // Payment info
+  payment_method?: 'cash' | 'card'
+  payment_amount?: number
   // Relations
   customer?: Customer
   staff?: Staff
