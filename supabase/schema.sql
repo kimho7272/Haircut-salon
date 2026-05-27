@@ -47,19 +47,12 @@ create table public.appointments (
     duration integer not null default 60, -- minutes
     status varchar(20) default 'scheduled' check (status in ('scheduled', 'completed', 'cancelled')),
     notes text,
+    payment_amount decimal(10,2), -- 결제 금액
+    payment_method varchar(20) check (payment_method in ('cash', 'card')), -- 결제 방법
     created_at timestamp with time zone default timezone('utc'::text, now()) not null,
     updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Payments table (결제 정보)
-create table public.payments (
-    id uuid default uuid_generate_v4() primary key,
-    appointment_id uuid references public.appointments(id) on delete cascade,
-    amount decimal(10,2) not null,
-    payment_method varchar(20) default 'cash' check (payment_method in ('cash', 'card')),
-    payment_date timestamp with time zone default timezone('utc'::text, now()) not null,
-    staff_id uuid references public.staff(id) on delete set null
-);
 
 -- Create unique constraint for customers without phone numbers
 -- This ensures only one customer per name when phone is NULL or empty
@@ -72,14 +65,12 @@ create index idx_appointments_date on public.appointments(appointment_date);
 create index idx_appointments_customer on public.appointments(customer_id);
 create index idx_appointments_staff on public.appointments(staff_id);
 create index idx_customers_phone on public.customers(phone) where phone is not null;
-create index idx_payments_date on public.payments(payment_date);
 
 -- Row Level Security (RLS) policies
 alter table public.staff enable row level security;
 alter table public.customers enable row level security;
 alter table public.services enable row level security;
 alter table public.appointments enable row level security;
-alter table public.payments enable row level security;
 
 -- RLS Policies (allow public access for development)
 create policy "공개 읽기 - staff" on public.staff
@@ -101,8 +92,6 @@ create policy "모든 사용자 쓰기 - customers" on public.customers
 create policy "모든 사용자 쓰기 - appointments" on public.appointments
   for all using (true) with check (true);
 
-create policy "모든 사용자 쓰기 - payments" on public.payments
-  for all using (true) with check (true);
 
 -- Insert sample data for testing
 insert into public.staff (username, password_hash, name, role) values
