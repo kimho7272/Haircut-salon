@@ -173,7 +173,6 @@ const translations = {
     // 삭제 확인 모달
     'delete_appointment_confirm': '예약 삭제 확인',
     'delete_appointment_question': '다음 예약을 삭제하시겠습니까?',
-    'customer_name_unknown': '고객명 없음',
     'service_name_unknown': '서비스명 없음',
     'staff_abbreviation': '직',
     'memo_label_colon': '메모:',
@@ -482,7 +481,6 @@ const translations = {
     // 삭제 확인 모달
     'delete_appointment_confirm': 'Delete Appointment',
     'delete_appointment_question': 'Are you sure you want to delete this appointment?',
-    'customer_name_unknown': 'Unknown Customer',
     'service_name_unknown': 'Unknown Service',
     'staff_abbreviation': 'S',
     'memo_label_colon': 'Memo:',
