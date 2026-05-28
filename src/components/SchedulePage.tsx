@@ -460,8 +460,8 @@ export default function SchedulePage() {
       </div>
 
       {/* 캘린더 영역 */}
-      <div className="p-3 flex-1">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-3 flex-1 flex flex-col">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1">
           {/* 요일 헤더 */}
           <div className="grid grid-cols-8 border-b border-gray-200 bg-gray-50">
             <div className="p-3 border-r border-gray-200 text-center font-medium text-gray-600">{t('time')}</div>
@@ -502,7 +502,7 @@ export default function SchedulePage() {
           </div>
 
           {/* 시간대별 그리드 */}
-          <div className="max-h-[calc(100vh-300px)] overflow-y-auto hide-scrollbar">
+          <div className="overflow-y-auto hide-scrollbar" style={{ maxHeight: 'calc(100vh - 280px)' }}>
             {hourBlocks.map((hour, hourIndex) => (
               <div
                 key={hour}
@@ -698,7 +698,7 @@ export default function SchedulePage() {
       </div>
 
       {/* 하단 통계 패널 */}
-      <div className="bg-white border-t shadow-sm">
+      <div className="bg-white border-t shadow-sm mt-0">
         <div className="px-3 py-3">
           {(() => {
             const today = new Date()

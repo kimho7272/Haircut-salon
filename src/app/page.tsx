@@ -19,7 +19,7 @@ export default function MainPage() {
     <AuthProvider>
       <LanguageProvider>
         <ProtectedRoute>
-          <div className="min-h-screen bg-gray-50">
+          <div className="bg-gray-50">
             <Sidebar
               currentPage={currentPage}
               onPageChange={setCurrentPage}
