@@ -43,7 +43,7 @@ export type Service = {
 export type Appointment = {
   id: string
   customer_id: string
-  staff_id: string
+  staff_id?: string
   service_id: string
   appointment_date: string
   appointment_time: string
