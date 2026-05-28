@@ -54,7 +54,7 @@ const getAppointmentServices = async (appointmentIds: string[]) => {
     .from('appointment_services')
     .select(`
       appointment_id,
-      service:services(id, name, price, duration, description)
+      service:services(id, name, price, duration, description, active)
     `)
     .in('appointment_id', appointmentIds)
 
@@ -95,7 +95,7 @@ export const getAppointments = async (): Promise<AppointmentWithRelations[]> => 
         const appointmentServicesData = await getAppointmentServices([appointment.id])
         const junctionServices = appointmentServicesData
           .filter(item => item.appointment_id === appointment.id && item.service)
-          .map(item => item.service!)
+          .flatMap(item => Array.isArray(item.service) ? item.service : [item.service!])
 
         if (junctionServices.length > 0) {
           services = junctionServices
@@ -162,7 +162,7 @@ export const getAppointmentsByDateRange = async (
         const appointmentServicesData = await getAppointmentServices([appointment.id])
         const junctionServices = appointmentServicesData
           .filter(item => item.appointment_id === appointment.id && item.service)
-          .map(item => item.service!)
+          .flatMap(item => Array.isArray(item.service) ? item.service : [item.service!])
 
         if (junctionServices.length > 0) {
           services = junctionServices
@@ -229,7 +229,7 @@ export const saveAppointment = async (
         const appointmentServicesData = await getAppointmentServices([savedAppointment.id])
         services = appointmentServicesData
           .filter(item => item.appointment_id === savedAppointment.id && item.service)
-          .map(item => item.service!)
+          .flatMap(item => Array.isArray(item.service) ? item.service : [item.service!])
       } catch (junctionError) {
         // Fallback: Get services directly
         const { data: serviceData, error: serviceError } = await supabase
@@ -376,7 +376,7 @@ export const getCustomerHistory = async (customerId: string): Promise<Appointmen
         const appointmentServicesData = await getAppointmentServices([appointment.id])
         const junctionServices = appointmentServicesData
           .filter(item => item.appointment_id === appointment.id && item.service)
-          .map(item => item.service!)
+          .flatMap(item => Array.isArray(item.service) ? item.service : [item.service!])
 
         if (junctionServices.length > 0) {
           services = junctionServices
