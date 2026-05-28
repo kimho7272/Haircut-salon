@@ -50,7 +50,6 @@ const translations = {
 
     // 사이드바
     'salon_name': process.env.NEXT_PUBLIC_SALON_NAME || '미용실',
-    'management_system': '관리 시스템',
     'schedule_management': '일정 관리',
     'customer_management': '고객 관리',
 
@@ -362,7 +361,6 @@ const translations = {
 
     // 사이드바
     'salon_name': process.env.NEXT_PUBLIC_SALON_NAME || 'Salon',
-    'management_system': 'Management System',
     'schedule_management': 'Schedule',
     'customer_management': 'Customers',
 
