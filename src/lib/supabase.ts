@@ -3,12 +3,14 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// Create Supabase client with optimized settings
+// Create Supabase client with environment-aware settings
+const isDevelopment = process.env.NODE_ENV === 'development'
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false, // Disable session persistence in development
-    autoRefreshToken: false, // Disable auto refresh in development
-    detectSessionInUrl: false, // Disable URL session detection
+    persistSession: !isDevelopment, // Enable session persistence in production
+    autoRefreshToken: !isDevelopment, // Enable auto refresh in production
+    detectSessionInUrl: false, // Keep disabled for security
   },
 })
 

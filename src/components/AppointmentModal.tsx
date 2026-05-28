@@ -540,10 +540,10 @@ export default function AppointmentModal({
       duration: finalDuration,
       notes: formData.notes,
       status: appointmentStatus as 'scheduled' | 'auto_completed' | 'completed' | 'cancelled',
-      // 완료된 예약인 경우 결제 정보 포함
+      // 완료된 예약인 경우 결제 정보 포함 (선택사항)
       ...(isCompletedAppointment && {
         payment_method: formData.payment_method || undefined,
-        payment_amount: formData.payment_amount || undefined
+        payment_amount: formData.payment_amount > 0 ? formData.payment_amount : undefined
       })
     }
 
@@ -611,17 +611,39 @@ export default function AppointmentModal({
     setLoading(true)
 
     try {
+      // 디버깅: Supabase 연결 테스트
+      console.log('🔍 Testing Supabase connection...')
+      console.log('Environment variables:', {
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Set' : 'Missing',
+        key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Set' : 'Missing',
+        nodeEnv: process.env.NODE_ENV
+      })
+      console.log('📊 Form data being submitted:', formData)
+      console.log('🎯 Selected services:', selectedServices.map(s => ({ id: s.id, name: s.name })))
+      console.log('👤 Show new customer:', showNewCustomer)
+      console.log('📋 Mode:', mode)
+
       // 새 고객 등록 처리
       if (showNewCustomer) {
+        console.log('💾 Saving new customer and appointment...')
         await saveNewCustomerAndAppointment()
       } else if (!formData.customer_id) {
         throw new Error(t('select_customer_required'))
       } else {
         // 기존 고객 선택된 경우
+        console.log('✏️ Creating appointment with existing customer:', formData.customer_id)
         await createAppointmentWithCustomer(formData.customer_id)
       }
     } catch (error: any) {
       console.error('예약 저장 실패:', error)
+      console.error('Error details:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        stack: error?.stack,
+        type: typeof error,
+        keys: Object.keys(error || {})
+      })
 
       // 일반 에러 처리
       const errorConfig = createGeneralErrorModal(
@@ -1208,7 +1230,7 @@ export default function AppointmentModal({
                       value={formData.payment_amount || ''}
                       onChange={(e) => setFormData(prev => ({
                         ...prev,
-                        payment_amount: parseInt(e.target.value) || 0
+                        payment_amount: e.target.value === '' ? 0 : parseInt(e.target.value) || 0
                       }))}
                       className="w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                       placeholder="0"

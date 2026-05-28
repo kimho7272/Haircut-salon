@@ -198,16 +198,22 @@ export const saveAppointment = async (
   const { service_ids, ...baseAppointmentData } = appointmentData
 
   try {
+    console.log('💾 Saving appointment with data:', appointmentData)
+    console.log('🔗 Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL)
+    console.log('🗝️ Has Supabase key:', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+
     // Store only first service in service_id field (for backward compatibility)
     const firstServiceId = service_ids && service_ids.length > 0 ? service_ids[0] : null
 
+    const insertData = {
+      ...baseAppointmentData,
+      service_id: firstServiceId
+    }
+    console.log('📥 Inserting data:', insertData)
 
     const { data: savedAppointment, error: appointmentError } = await supabase
       .from('appointments')
-      .insert([{
-        ...baseAppointmentData,
-        service_id: firstServiceId // Store first service as UUID, keep notes clean
-      }])
+      .insert([insertData])
       .select(`
         *,
         customer:customers(id, name, phone, email),
@@ -215,8 +221,15 @@ export const saveAppointment = async (
       `)
       .single()
 
+    console.log('📊 Supabase response:', { data: savedAppointment, error: appointmentError })
+
     if (appointmentError) {
-      throw appointmentError
+      console.error('❌ Supabase insert error:', appointmentError)
+      throw new Error(`Database error: ${appointmentError.message || 'Unknown error'} (Code: ${appointmentError.code || 'none'})`)
+    }
+
+    if (!savedAppointment) {
+      throw new Error('No appointment data returned from database')
     }
 
     // Try junction table
@@ -247,9 +260,21 @@ export const saveAppointment = async (
       ...savedAppointment,
       services
     }
-  } catch (error) {
-    console.error('Appointment save error:', error)
-    throw error
+  } catch (error: any) {
+    console.error('❌ Appointment save error details:', {
+      error,
+      message: error?.message,
+      code: error?.code,
+      details: error?.details,
+      hint: error?.hint,
+      stack: error?.stack
+    })
+
+    // Provide more meaningful error message
+    const errorMessage = error?.message || 'Unknown database error occurred'
+    const errorCode = error?.code || 'UNKNOWN'
+
+    throw new Error(`Failed to save appointment: ${errorMessage} (${errorCode})`)
   }
 }
 
