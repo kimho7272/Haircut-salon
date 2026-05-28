@@ -532,7 +532,7 @@ export default function AppointmentModal({
 
     const appointmentData = {
       customer_id: customerId,
-      staff_id: selectedStaff?.id || null,
+      staff_id: selectedStaff?.id || undefined,
       service_ids: formData.service_ids, // Pass all selected services
       appointment_date: selectedAppointmentDate,
       appointment_time: formData.appointment_time,
