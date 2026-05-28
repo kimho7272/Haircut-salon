@@ -17,6 +17,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // 세션 관리를 위한 타이머 참조
+  const keepAliveInterval = React.useRef<NodeJS.Timeout>()
+
   useEffect(() => {
     // 초기 세션 확인
     const initializeAuth = async () => {
@@ -48,6 +51,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  // 세션 관리 useEffect
+  useEffect(() => {
+    if (!user) {
+      // 로그아웃 상태면 타이머 정리
+      if (keepAliveInterval.current) clearInterval(keepAliveInterval.current)
+      return
+    }
+
+    // Keep-alive: 1분마다 세션 갱신으로 하루종일 유지
+    keepAliveInterval.current = setInterval(async () => {
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession()
+        if (!session) {
+          console.log('Keep-alive: 세션이 만료되었습니다')
+          setUser(null)
+        } else {
+          console.log('Keep-alive: 세션 유지 중')
+        }
+      } catch (error) {
+        console.error('Keep-alive 오류:', error)
+      }
+    }, 60 * 1000) // 1분
+
+    return () => {
+      // 클리어업
+      if (keepAliveInterval.current) clearInterval(keepAliveInterval.current)
+    }
+  }, [user])
 
   const loadUserProfile = async (authUser: User) => {
     try {
