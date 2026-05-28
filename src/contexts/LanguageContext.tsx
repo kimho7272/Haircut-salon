@@ -166,7 +166,6 @@ const translations = {
     'payment_amount': '결제 금액',
     'payment_info': '결제 정보',
 
-    'recent_visits': '최근 방문 기록',
     'visits_count': '건',
     'minutes': '분',
     'new_customer_info': '새 고객 정보',
@@ -476,7 +475,6 @@ const translations = {
     'payment_amount': 'Payment Amount',
     'payment_info': 'Payment Info',
 
-    'recent_visits': 'Recent Visits',
     'visits_count': 'visits',
     'minutes': 'min',
     'new_customer_info': 'New Customer Info',
