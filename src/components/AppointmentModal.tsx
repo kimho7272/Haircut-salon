@@ -519,16 +519,13 @@ export default function AppointmentModal({
       selectedServices: selectedServices.map(s => s.name)
     })
 
-    // 상태 결정 로직
+    // 상태 결정 로직 (데이터베이스에는 scheduled/completed/cancelled만 저장)
     let appointmentStatus = 'scheduled'
-    if (isCompletedAppointment) {
-      // 완료된 예약의 경우 결제 정보가 있으면 completed, 없으면 auto_completed
-      if (formData.payment_amount && formData.payment_amount > 0) {
-        appointmentStatus = 'completed'
-      } else {
-        appointmentStatus = 'auto_completed'
-      }
+    if (isCompletedAppointment && formData.payment_amount && formData.payment_amount > 0) {
+      // 완료된 예약 + 결제정보 있음 → completed
+      appointmentStatus = 'completed'
     }
+    // 완료되었지만 결제정보 없음 → scheduled로 유지 (화면에서는 auto_completed로 표시됨)
 
     const appointmentData = {
       customer_id: customerId,
@@ -539,7 +536,7 @@ export default function AppointmentModal({
       appointment_time: formData.appointment_time,
       duration: finalDuration,
       notes: formData.notes,
-      status: appointmentStatus as 'scheduled' | 'auto_completed' | 'completed' | 'cancelled',
+      status: appointmentStatus as 'scheduled' | 'completed' | 'cancelled' | 'auto_completed',
       // 완료된 예약인 경우 결제 정보 포함 (선택사항)
       ...(isCompletedAppointment && {
         payment_method: formData.payment_method || undefined,
