@@ -177,7 +177,6 @@ const translations = {
     'memo_label_colon': '메모:',
     'delete_warning': '삭제된 예약은 복구할 수 없습니다.',
     'deleting': '삭제 중...',
-    'delete': '삭제',
 
     // 관리자 메뉴
     'admin_menu': '관리자 메뉴',
@@ -484,7 +483,6 @@ const translations = {
     'memo_label_colon': 'Memo:',
     'delete_warning': 'Deleted appointments cannot be recovered.',
     'deleting': 'Deleting...',
-    'delete': 'Delete',
 
     // 관리자 메뉴
     'admin_menu': 'Admin Menu',
