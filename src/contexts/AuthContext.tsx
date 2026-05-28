@@ -18,7 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   // 세션 관리를 위한 타이머 참조
-  const keepAliveInterval = React.useRef<NodeJS.Timeout>()
+  const keepAliveInterval = React.useRef<NodeJS.Timeout | undefined>(undefined)
 
   useEffect(() => {
     // 초기 세션 확인
