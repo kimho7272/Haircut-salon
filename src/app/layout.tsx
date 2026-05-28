@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "미용실 스케쥴 관리",
+  title: process.env.NEXT_PUBLIC_SALON_NAME || "미용실 스케쥴 관리",
   description: "간편하고 직관적인 미용실 예약 관리 시스템",
 };
 
