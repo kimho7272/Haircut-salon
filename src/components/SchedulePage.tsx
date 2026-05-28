@@ -26,6 +26,10 @@ export default function SchedulePage() {
   const [appointmentToDelete, setAppointmentToDelete] = useState<AppointmentWithRelations | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
+  // 툴팁 상태
+  const [hoveredAppointment, setHoveredAppointment] = useState<AppointmentWithRelations | null>(null)
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0, align: 'left' as 'left' | 'right' })
+
   // 이번 주 날짜들 생성
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 }) // 일요일 시작
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -145,6 +149,29 @@ export default function SchedulePage() {
     setDeleteLoading(false)
   }
 
+  // 툴팁 핸들러
+  const handleMouseEnter = (appointment: AppointmentWithRelations, event: React.MouseEvent) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const appointmentDate = parseISO(appointment.appointment_date)
+
+    // 현재 주의 토요일 날짜 계산
+    const weekSaturday = addDays(weekStart, 6) // 일주일 시작(일요일)에서 6일 더하면 토요일
+    const isSaturday = isSameDay(appointmentDate, weekSaturday)
+
+    const position = {
+      x: isSaturday ? rect.left - 10 : rect.right + 10, // 토요일은 박스 왼쪽에서 10px 떨어진 곳, 나머지는 오른쪽
+      y: rect.top,
+      align: isSaturday ? 'right' : 'left' as 'left' | 'right' // 툴팁 정렬 방향
+    }
+
+    setTooltipPosition(position)
+    setHoveredAppointment(appointment)
+  }
+
+  const handleMouseLeave = () => {
+    setHoveredAppointment(null)
+  }
+
   const getAppointmentsForDate = (date: Date) => {
     return appointments.filter(apt =>
       isSameDay(parseISO(apt.appointment_date), date) && apt.status !== 'cancelled'
@@ -169,22 +196,10 @@ export default function SchedulePage() {
     // PRIORITIZE custom duration (important for multiple services with custom time)
     if (appointment.duration && appointment.duration > 0) {
       calculatedDuration = appointment.duration
-      console.log(`Using custom duration for ${appointment.id}:`, calculatedDuration)
     } else if (appointment.services && appointment.services.length > 0) {
       calculatedDuration = appointment.services.reduce((sum, service) => sum + service.duration, 0)
-      console.log(`Using services duration for ${appointment.id}:`, appointment.services.map(s => s.name), 'Total:', calculatedDuration)
     }
 
-    // Debug log for the problematic appointment
-    if (appointment.customer?.name === 'Gayeon Kim') {
-      console.log('DEBUG Gayeon Kim appointment:', {
-        id: appointment.id,
-        services: appointment.services,
-        customDuration: appointment.duration,
-        finalDuration: calculatedDuration,
-        rawData: appointment
-      })
-    }
 
     return calculatedDuration
   }
@@ -203,21 +218,13 @@ export default function SchedulePage() {
     const apt1Start = getMinutes(apt1.appointment_time)
     const apt1End = apt1Start + getAppointmentDuration(apt1)
     const apt2Start = getMinutes(apt2.appointment_time)
+    const apt2End = apt2Start + getAppointmentDuration(apt2)
 
-    // 시작시간순 정렬 가정: apt1이 apt2보다 먼저 시작
-    // 겹침 조건: apt1이 끝나기 전에 apt2가 시작하면 겹침
-    const overlaps = apt1End > apt2Start
+    // 정확한 겹침 감지: 두 시간 구간이 실제로 겹치는 경우만
+    // 한 예약이 끝나는 시간과 다른 예약이 시작하는 시간이 같으면 겹치지 않음 (<=, >= 대신 <, > 사용)
+    const overlaps = apt1Start < apt2End && apt2Start < apt1End &&
+                    !(apt1End === apt2Start || apt2End === apt1Start)
 
-    // Debug for testing
-    if (apt1.customer?.name === 'Gayeon Kim' || apt2.customer?.name === 'Gayeon Kim' ||
-        apt1.customer?.name === '서은정' || apt2.customer?.name === '서은정') {
-      console.log('🔍 Simplified overlap check:', {
-        apt1: { time: apt1.appointment_time, customer: apt1.customer?.name, start: apt1Start, end: apt1End },
-        apt2: { time: apt2.appointment_time, customer: apt2.customer?.name, start: apt2Start },
-        condition: `${apt1End} > ${apt2Start}`,
-        overlaps
-      })
-    }
 
     return overlaps
   }
@@ -225,43 +232,6 @@ export default function SchedulePage() {
 
   // 겹치는 예약들을 그룹핑하고 정렬
   const groupOverlappingAppointments = (appointments: AppointmentWithRelations[]) => {
-    // Debug log for 12:30 appointments
-    const twelveThirtyAppts = appointments.filter(apt => apt.appointment_time.startsWith('12:30'))
-    if (twelveThirtyAppts.length > 0) {
-      console.log('🕐 12:30 Appointments found:', twelveThirtyAppts.map(apt => ({
-        time: apt.appointment_time,
-        customer: apt.customer?.name,
-        duration: getAppointmentDuration(apt),
-        services: apt.services?.map(s => s.name) || 'no services'
-      })))
-
-      // Also log ALL appointments to see the context
-      console.log('📋 All appointments in this group call:', appointments.map(apt => ({
-        id: apt.id.slice(-8),
-        time: apt.appointment_time,
-        customer: apt.customer?.name,
-        date: apt.appointment_date,
-        exactTime: apt.appointment_time
-      })))
-
-      // Special check for exact same time appointments
-      const exactSameTimeGroups = appointments.reduce((acc, apt) => {
-        const key = `${apt.appointment_date}_${apt.appointment_time}`
-        if (!acc[key]) acc[key] = []
-        acc[key].push(apt)
-        return acc
-      }, {} as Record<string, typeof appointments>)
-
-      Object.entries(exactSameTimeGroups).forEach(([key, appts]) => {
-        if (appts.length > 1) {
-          console.log('⚡ EXACT SAME TIME APPOINTMENTS:', key, appts.map(a => a.customer?.name))
-        }
-      })
-
-      // Count how many 12:30 appointments are in this call
-      console.log('🔢 Number of 12:30 appointments in this call:', twelveThirtyAppts.length)
-    }
-
     const groups: AppointmentWithRelations[][] = []
     const processed = new Set<string>()
 
@@ -271,36 +241,16 @@ export default function SchedulePage() {
       const group = [apt]
       processed.add(apt.id)
 
-      // Debug for 12:30 appointments
-      if (apt.appointment_time.startsWith('12:30')) {
-        console.log('🔄 Processing 12:30 appointment:', apt.customer?.name, 'looking for overlaps...')
-      }
-
-      // 현재 예약과 겹치는 모든 예약 찾기
+      // 첫 번째 예약과 직접 겹치는 예약들만 찾기 (전이적 그룹핑 방지)
       for (const otherApt of appointments) {
         if (processed.has(otherApt.id)) {
-          // Debug: skip already processed
-          if (apt.appointment_time.startsWith('12:30') || otherApt.appointment_time.startsWith('12:30')) {
-            console.log('⏭️ Skipping already processed:', otherApt.customer?.name)
-          }
           continue
         }
 
-        // Check if we're comparing 12:30 appointments
-        if (apt.appointment_time.startsWith('12:30') || otherApt.appointment_time.startsWith('12:30')) {
-          console.log('🔍 Checking if overlap between:', {
-            apt1: { time: apt.appointment_time, customer: apt.customer?.name },
-            apt2: { time: otherApt.appointment_time, customer: otherApt.customer?.name }
-          })
-        }
-
-        if (group.some(groupApt => isOverlapping(groupApt, otherApt))) {
+        // 그룹의 첫 번째 예약(apt)과 직접 겹치는 경우만 그룹에 추가
+        if (isOverlapping(apt, otherApt)) {
           group.push(otherApt)
           processed.add(otherApt.id)
-
-          if (apt.appointment_time.startsWith('12:30') || otherApt.appointment_time.startsWith('12:30')) {
-            console.log('✅ Found overlap! Added to group:', otherApt.customer?.name)
-          }
         }
       }
 
@@ -317,17 +267,6 @@ export default function SchedulePage() {
       groups.push(group)
     }
 
-    // Debug output for groups with 12:30 appointments
-    groups.forEach((group, idx) => {
-      if (group.some(apt => apt.appointment_time.startsWith('12:30'))) {
-        console.log(`📊 Group ${idx} contains 12:30 appointment:`, group.map(apt => ({
-          time: apt.appointment_time,
-          customer: apt.customer?.name,
-          groupSize: group.length
-        })))
-      }
-    })
-
     return groups
   }
 
@@ -343,18 +282,21 @@ export default function SchedulePage() {
     const duration = Math.max(getAppointmentDuration(appointment), 30)
     const heightPercentage = (duration / 60) * 100 // Remove 100% limit for multi-hour appointments
 
-    // Debug log for Gayeon Kim appointment
-    if (appointment.customer?.name === 'Gayeon Kim') {
-      console.log('DEBUG Height calculation for Gayeon Kim:', {
-        duration: duration,
-        heightPercentage: heightPercentage,
-        appointmentTime: appointment.appointment_time
-      })
-    }
-
     // 너비와 위치 계산 (겹치는 예약이 있으면 나누어 배치)
     const width = groupSize > 1 ? `${100 / groupSize}%` : 'calc(100% - 4px)'
     const left = groupSize > 1 ? `${(groupIndex / groupSize) * 100}%` : '2px'
+
+    // 문제가 되는 케이스만 디버깅 (left >= 100% 또는 비정상적인 값)
+    if (groupIndex >= groupSize || (typeof left === 'string' && parseInt(left) >= 100)) {
+      console.log(`🚨 POSITIONING ERROR ${appointmentTime}:`, {
+        customer: appointment.customer?.name,
+        groupSize,
+        groupIndex,
+        width,
+        left,
+        calculation: `(${groupIndex} / ${groupSize}) * 100% = ${(groupIndex / groupSize) * 100}%`
+      })
+    }
 
     return {
       top: `${topPercentage}%`,
@@ -580,13 +522,95 @@ export default function SchedulePage() {
                   const dayAppointments = getAppointmentsForDate(day)
                   const appointmentGroups = groupOverlappingAppointments(dayAppointments)
 
-                  // 현재 시간대에 표시할 예약들만 필터링
-                  const displayAppointments = appointmentGroups.flatMap(group =>
-                    group.filter(apt => {
+                  // 1단계: 예약별 생명주기 기반 컬럼 배정
+                  const getMinutes = (timeStr: string) => {
+                    const [h, m] = timeStr.slice(0, 5).split(':').map(Number)
+                    return h * 60 + m
+                  }
+
+                  const appointmentColumns = new Map<string, number>()
+                  const appointmentGroupSizes = new Map<string, number>()
+
+                  if (dayAppointments.length > 0) {
+                    // 각 예약에 대해 그 예약의 생명주기 동안의 최대 겹침 수 계산
+                    for (const targetApt of dayAppointments) {
+                      const targetStart = getMinutes(targetApt.appointment_time)
+                      const targetEnd = targetStart + getAppointmentDuration(targetApt)
+
+                      // 이 예약의 생명주기와 겹치는 모든 예약들 찾기
+                      const overlappingApts = dayAppointments.filter(apt => {
+                        const aptStart = getMinutes(apt.appointment_time)
+                        const aptEnd = aptStart + getAppointmentDuration(apt)
+                        return aptStart < targetEnd && aptEnd > targetStart
+                      })
+
+                      // 5분 간격으로 최대 동시성 계산 (이 예약의 생명주기 동안)
+                      let maxConcurrentInLifecycle = 0
+                      for (let checkTime = targetStart; checkTime < targetEnd; checkTime += 5) {
+                        let concurrentCount = 0
+                        for (const apt of overlappingApts) {
+                          const aptStart = getMinutes(apt.appointment_time)
+                          const aptEnd = aptStart + getAppointmentDuration(apt)
+                          if (checkTime >= aptStart && checkTime < aptEnd) {
+                            concurrentCount++
+                          }
+                        }
+                        maxConcurrentInLifecycle = Math.max(maxConcurrentInLifecycle, concurrentCount)
+                      }
+
+                      appointmentGroupSizes.set(targetApt.id, maxConcurrentInLifecycle)
+                    }
+
+                    // 시간순으로 정렬하여 컬럼 배정
+                    const sortedAppointments = [...dayAppointments].sort((a, b) =>
+                      a.appointment_time.localeCompare(b.appointment_time)
+                    )
+
+                    const columnEndTimes: number[] = []
+
+                    for (const apt of sortedAppointments) {
+                      const aptStart = getMinutes(apt.appointment_time)
+                      const aptEnd = aptStart + getAppointmentDuration(apt)
+                      const aptGroupSize = appointmentGroupSizes.get(apt.id) || 1
+
+                      // 이 예약의 그룹 크기 내에서 사용 가능한 컬럼 찾기
+                      let assignedColumn = -1
+                      for (let col = 0; col < aptGroupSize && col < columnEndTimes.length; col++) {
+                        if (columnEndTimes[col] <= aptStart) {
+                          assignedColumn = col
+                          columnEndTimes[col] = aptEnd
+                          break
+                        }
+                      }
+
+                      // 사용 가능한 컬럼이 없으면 새 컬럼 생성 (그룹 크기 내에서)
+                      if (assignedColumn === -1 && columnEndTimes.length < aptGroupSize) {
+                        assignedColumn = columnEndTimes.length
+                        columnEndTimes.push(aptEnd)
+                      } else if (assignedColumn === -1) {
+                        // 그룹 크기를 초과할 수 없으면 0번 컬럼 사용 (fallback)
+                        assignedColumn = 0
+                        columnEndTimes[0] = aptEnd
+                      }
+
+                      appointmentColumns.set(apt.id, assignedColumn)
+                    }
+                  }
+
+                  // 2단계: 예약별 생명주기 기반 표시 (이미 Phase 1에서 계산됨)
+
+                  // 이 시간대에 시작하는 예약들만 표시 (Phase 1에서 배정된 컬럼과 그룹크기 사용)
+                  const displayAppointments = dayAppointments
+                    .filter(apt => {
                       const [startHour] = apt.appointment_time.split(':').map(Number)
                       return startHour === hour
-                    }).map(apt => ({ ...apt, groupSize: group.length, groupIndex: group.findIndex(g => g.id === apt.id) }))
-                  )
+                    })
+                    .map(apt => ({
+                      ...apt,
+                      groupSize: appointmentGroupSizes.get(apt.id) || 1,  // 예약별 생명주기 기반 그룹 크기
+                      groupIndex: appointmentColumns.get(apt.id) || 0
+                    }))
+
 
                   const isTodayColumn = isSameDay(day, new Date())
                   const isLastHour = hourIndex === hourBlocks.length - 1
@@ -628,6 +652,8 @@ export default function SchedulePage() {
                               ...style
                             }}
                             onClick={() => handleEditAppointment(appointment)}
+                            onMouseEnter={(e) => handleMouseEnter(appointment, e)}
+                            onMouseLeave={handleMouseLeave}
                           >
                             <div className="p-1 h-full overflow-hidden">
                               <div className="flex justify-between items-start mb-0.5">
@@ -798,6 +824,86 @@ export default function SchedulePage() {
           })()}
         </div>
       </div>
+
+      {/* 예약 상세정보 툴팁 */}
+      {hoveredAppointment && (
+        <div
+          className="fixed bg-white border border-gray-300 rounded-lg shadow-lg p-3 z-50 max-w-sm"
+          style={{
+            left: tooltipPosition.x,
+            top: tooltipPosition.y,
+            transform: tooltipPosition.align === 'right' ? 'translate(-100%, -50%)' : 'translateY(-50%)'
+          }}
+        >
+          <div className="space-y-2">
+            {/* 시간 */}
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-gray-500" />
+              <span className="font-medium text-sm">
+                {hoveredAppointment.appointment_time.slice(0, 5)}
+              </span>
+            </div>
+
+            {/* 고객 정보 */}
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-gray-500" />
+              <span className="text-sm">
+                {hoveredAppointment.customer?.name || t('customer_name_unknown')}
+              </span>
+            </div>
+
+            {/* 전화번호 */}
+            {hoveredAppointment.customer?.phone && (
+              <div className="text-sm text-gray-600 ml-6">
+                📞 {hoveredAppointment.customer.phone}
+              </div>
+            )}
+
+            {/* 서비스 */}
+            {hoveredAppointment.services && hoveredAppointment.services.length > 0 && (
+              <div className="border-t pt-2">
+                <div className="text-xs text-gray-500 mb-1">{t('services')}</div>
+                <div className="space-y-1">
+                  {hoveredAppointment.services.map((service, index) => (
+                    <div key={index} className="flex justify-between text-sm">
+                      <span>{service.name}</span>
+                      <span className="text-gray-600">${service.price}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 직원 */}
+            {hoveredAppointment.staff && (
+              <div className="text-sm text-gray-600">
+                👨‍💼 {hoveredAppointment.staff.name}
+              </div>
+            )}
+
+            {/* 메모 */}
+            {hoveredAppointment.notes && (
+              <div className="border-t pt-2">
+                <div className="text-xs text-gray-500 mb-1">{t('notes')}</div>
+                <div className="text-sm text-gray-700">{hoveredAppointment.notes}</div>
+              </div>
+            )}
+
+            {/* 결제 정보 */}
+            {hoveredAppointment.payment_amount && (
+              <div className="border-t pt-2">
+                <div className="text-xs text-gray-500 mb-1">{t('payment_info')}</div>
+                <div className="flex justify-between text-sm">
+                  <span>
+                    {hoveredAppointment.payment_method === 'cash' ? '💵 현금' : '💳 카드'}
+                  </span>
+                  <span className="font-medium">${hoveredAppointment.payment_amount}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 예약 추가/수정 모달 */}
       <AppointmentModal

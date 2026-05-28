@@ -166,6 +166,7 @@ const translations = {
     'cash': '현금',
     'card': '카드',
     'payment_amount': '결제 금액',
+    'payment_info': '결제 정보',
 
     'recent_visits': '최근 방문 기록',
     'visits_count': '건',
@@ -477,6 +478,7 @@ const translations = {
     'cash': 'Cash',
     'card': 'Card',
     'payment_amount': 'Payment Amount',
+    'payment_info': 'Payment Info',
 
     'recent_visits': 'Recent Visits',
     'visits_count': 'visits',

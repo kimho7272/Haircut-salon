@@ -1,9 +1,33 @@
 import { createClient } from '@supabase/supabase-js'
 
-// 클라이언트 사이드 Supabase 클라이언트
+// 클라이언트 사이드 Supabase 클라이언트 (세션 기반 저장소 사용)
 export const supabaseClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      persistSession: true,
+      storageKey: 'haircut-auth',
+      storage: {
+        getItem: (key: string) => {
+          if (typeof window !== 'undefined') {
+            return sessionStorage.getItem(key)
+          }
+          return null
+        },
+        setItem: (key: string, value: string) => {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem(key, value)
+          }
+        },
+        removeItem: (key: string) => {
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem(key)
+          }
+        }
+      }
+    }
+  }
 )
 
 // 사용자 프로필 타입 정의

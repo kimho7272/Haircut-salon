@@ -9,11 +9,8 @@ export type AppointmentWithRelations = Appointment & {
 
 // Helper function to save appointment services
 const saveAppointmentServices = async (appointmentId: string, serviceIds: string[]) => {
-  console.log('🔍 DEBUG: Saving appointment services:', { appointmentId, serviceIds })
-
   // Validate inputs
   if (!appointmentId || !serviceIds || serviceIds.length === 0) {
-    console.error('❌ Invalid input:', { appointmentId, serviceIds })
     throw new Error('Invalid appointment ID or service IDs')
   }
 
@@ -22,22 +19,16 @@ const saveAppointmentServices = async (appointmentId: string, serviceIds: string
     service_id: serviceId
   }))
 
-  console.log('📝 Appointment services data to insert:', appointmentServices)
-
   // Test table access first
   try {
     const { count, error: countError } = await supabase
       .from('appointment_services')
       .select('*', { count: 'exact', head: true })
 
-    console.log('🔍 Table access test:', { count, error: countError })
-
     if (countError) {
-      console.error('❌ Table access failed:', countError)
       throw countError
     }
   } catch (accessError) {
-    console.error('❌ Cannot access appointment_services table:', accessError)
     throw accessError
   }
 
@@ -47,18 +38,8 @@ const saveAppointmentServices = async (appointmentId: string, serviceIds: string
     .insert(appointmentServices)
 
   if (error) {
-    console.error('❌ Insert failed:', error)
-    console.error('🔍 Full error details:', {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code,
-      severity: error.severity
-    })
     throw error
   }
-
-  console.log('✅ Successfully saved appointment services:', data)
   return data
 }
 
@@ -115,7 +96,6 @@ export const getAppointments = async (): Promise<AppointmentWithRelations[]> => 
 
         if (junctionServices.length > 0) {
           services = junctionServices
-          console.log(`📋 getAppointments: Loaded ${junctionServices.length} services from junction table for ${appointment.id}:`, services.map(s => s.name))
         } else if (appointment.service_id) {
           // Fallback to single service
           const { data: serviceData } = await supabase
@@ -125,7 +105,6 @@ export const getAppointments = async (): Promise<AppointmentWithRelations[]> => 
             .single()
           if (serviceData) {
             services = [serviceData]
-            console.log(`📋 getAppointments: Loaded single service fallback for ${appointment.id}:`, serviceData.name)
           }
         }
       } catch (error) {
@@ -138,16 +117,6 @@ export const getAppointments = async (): Promise<AppointmentWithRelations[]> => 
       }
 
       // Debug final result for specific customers
-      if (appointment.customer?.name === 'Seo Hyunwoo') {
-        console.log('🔍 Final appointment object for Seo Hyunwoo:', {
-          appointmentId: result.id,
-          customer: result.customer?.name,
-          time: result.appointment_time,
-          services: result.services,
-          serviceCount: result.services?.length,
-          serviceNames: result.services?.map(s => s.name)
-        })
-      }
 
       return result
     })
@@ -194,7 +163,6 @@ export const getAppointmentsByDateRange = async (
 
         if (junctionServices.length > 0) {
           services = junctionServices
-          console.log(`📋 Loaded ${junctionServices.length} services from junction table for ${appointment.id}`)
         } else if (appointment.service_id) {
           // Fallback to single service
           const { data: serviceData } = await supabase
@@ -204,7 +172,6 @@ export const getAppointmentsByDateRange = async (
             .single()
           if (serviceData) {
             services = [serviceData]
-            console.log(`📋 Loaded single service fallback for ${appointment.id}`)
           }
         }
       } catch (error) {
@@ -231,7 +198,6 @@ export const saveAppointment = async (
     // Store only first service in service_id field (for backward compatibility)
     const firstServiceId = service_ids && service_ids.length > 0 ? service_ids[0] : null
 
-    console.log('Saving appointment with service_id:', firstServiceId, 'and service_ids:', service_ids)
 
     const { data: savedAppointment, error: appointmentError } = await supabase
       .from('appointments')
@@ -247,21 +213,13 @@ export const saveAppointment = async (
       .single()
 
     if (appointmentError) {
-      console.error('예약 저장 실패:', appointmentError)
-      console.error('Error details:', {
-        message: appointmentError.message,
-        details: appointmentError.details,
-        hint: appointmentError.hint,
-        code: appointmentError.code
-      })
       throw appointmentError
     }
 
-    // Try junction table with detailed debugging
+    // Try junction table
     let services: Service[] = []
     if (service_ids && service_ids.length > 0) {
       try {
-        console.log('🔄 Attempting junction table save...')
         await saveAppointmentServices(savedAppointment.id, service_ids)
 
         // Get services from junction table
@@ -269,10 +227,7 @@ export const saveAppointment = async (
         services = appointmentServicesData
           .filter(item => item.appointment_id === savedAppointment.id && item.service)
           .map(item => item.service!)
-        console.log('✅ Junction table success:', services.map(s => s.name))
       } catch (junctionError) {
-        console.warn('❌ Junction table failed, using fallback:', junctionError)
-
         // Fallback: Get services directly
         const { data: serviceData, error: serviceError } = await supabase
           .from('services')
@@ -281,9 +236,6 @@ export const saveAppointment = async (
 
         if (!serviceError && serviceData) {
           services = serviceData
-          console.log('🔄 Fallback method used:', services.map(s => s.name))
-        } else {
-          console.error('❌ Even fallback failed:', serviceError)
         }
       }
     }
@@ -312,10 +264,6 @@ export const updateAppointment = async (
   const cleanNotes = baseUpdates.notes ?
     baseUpdates.notes.replace(/\n?\[MULTI_SERVICES\]:.*$/, '') : undefined
 
-  console.log('Updating appointment with service_id:', firstServiceId, 'service_ids:', service_ids)
-  console.log('Update data:', baseUpdates)
-  console.log('Full update data:', updates)
-
   const updateData: any = {
     ...baseUpdates,
     service_id: firstServiceId, // Store first service as UUID
@@ -325,8 +273,6 @@ export const updateAppointment = async (
   if (cleanNotes !== undefined) {
     updateData.notes = cleanNotes
   }
-
-  console.log('Final updateData being sent to supabase:', updateData)
 
   const { data: updatedAppointment, error: updateError } = await supabase
     .from('appointments')
@@ -340,16 +286,12 @@ export const updateAppointment = async (
     .single()
 
   if (updateError) {
-    console.error('예약 업데이트 실패:', updateError)
-    console.error('Error details:', JSON.stringify(updateError, null, 2))
-    console.error('Update data that failed:', updateData)
     throw updateError
   }
 
   // Use fallback method for services display
   let services: Service[] = []
   if (service_ids !== undefined && service_ids.length > 0) {
-    console.log('Update: Getting services for display...')
 
     // Get services directly for display
     const { data: serviceData, error: serviceError } = await supabase
@@ -359,9 +301,7 @@ export const updateAppointment = async (
 
     if (!serviceError && serviceData) {
       services = serviceData
-      console.log('Update: Successfully loaded services:', services.map(s => s.name))
     } else {
-      console.warn('Update: Failed to load services:', serviceError)
     }
   }
 
@@ -403,7 +343,6 @@ export const getCustomers = async (): Promise<Customer[]> => {
 
 // 고객의 최근 방문 기록 조회
 export const getCustomerHistory = async (customerId: string): Promise<AppointmentWithRelations[]> => {
-  console.log('방문 기록 조회 중:', customerId) // 디버깅
 
   const { data, error } = await supabase
     .from('appointments')
@@ -418,10 +357,7 @@ export const getCustomerHistory = async (customerId: string): Promise<Appointmen
     .order('appointment_time', { ascending: false })
     .limit(3)
 
-  console.log('방문 기록 조회 결과:', { data, error }) // 디버깅
-
   if (error) {
-    console.error('고객 방문 기록 조회 실패:', error)
     throw error
   }
 
@@ -441,7 +377,6 @@ export const getCustomerHistory = async (customerId: string): Promise<Appointmen
 
         if (junctionServices.length > 0) {
           services = junctionServices
-          console.log(`📋 Loaded ${junctionServices.length} services from junction table for ${appointment.id}`)
         } else if (appointment.service_id) {
           // Fallback to single service
           const { data: serviceData } = await supabase
@@ -451,7 +386,6 @@ export const getCustomerHistory = async (customerId: string): Promise<Appointmen
             .single()
           if (serviceData) {
             services = [serviceData]
-            console.log(`📋 Loaded single service fallback for ${appointment.id}`)
           }
         }
       } catch (error) {
@@ -487,12 +421,6 @@ export const saveCustomer = async (
 
     if (!isDuplicateConstraint) {
       console.error('고객 저장 실패:', error)
-      console.error('에러 세부 정보:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      })
     }
 
     throw error
