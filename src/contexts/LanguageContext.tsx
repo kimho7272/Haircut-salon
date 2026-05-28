@@ -85,7 +85,6 @@ const translations = {
     'customer_info_add': '새 고객 추가',
     'customer_name': '고객명',
     'phone_number': '전화번호',
-    'email': '이메일',
     'special_notes': '특이사항',
     'save_failed': '고객 정보 저장에 실패했습니다.',
 
@@ -396,7 +395,6 @@ const translations = {
     'customer_info_add': 'Add New Customer',
     'customer_name': 'Name',
     'phone_number': 'Phone',
-    'email': 'Email',
     'special_notes': 'Notes',
     'save_failed': 'Failed to save customer information.',
 
