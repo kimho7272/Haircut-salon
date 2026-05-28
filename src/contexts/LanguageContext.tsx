@@ -173,7 +173,6 @@ const translations = {
     // 삭제 확인 모달
     'delete_appointment_confirm': '예약 삭제 확인',
     'delete_appointment_question': '다음 예약을 삭제하시겠습니까?',
-    'service_name_unknown': '서비스명 없음',
     'staff_abbreviation': '직',
     'memo_label_colon': '메모:',
     'delete_warning': '삭제된 예약은 복구할 수 없습니다.',
@@ -481,7 +480,6 @@ const translations = {
     // 삭제 확인 모달
     'delete_appointment_confirm': 'Delete Appointment',
     'delete_appointment_question': 'Are you sure you want to delete this appointment?',
-    'service_name_unknown': 'Unknown Service',
     'staff_abbreviation': 'S',
     'memo_label_colon': 'Memo:',
     'delete_warning': 'Deleted appointments cannot be recovered.',
