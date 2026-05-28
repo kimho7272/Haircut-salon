@@ -375,7 +375,7 @@ export default function AppointmentModal({
 
       setFormData({
         customer_id: appointment.customer_id,
-        staff_id: appointment.staff_id,
+        staff_id: appointment.staff_id || '',
         service_ids: serviceIds,
         custom_duration: customDuration,
         appointment_time: appointmentTime,
