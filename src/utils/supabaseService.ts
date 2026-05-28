@@ -1,5 +1,8 @@
 import { supabase, type Appointment, type Customer, type Staff, type Service, type AppointmentService } from '@/lib/supabase'
 
+// Re-export types for convenience
+export type { Customer, Staff, Service, Appointment }
+
 // Extended appointment type with relation data
 export type AppointmentWithRelations = Appointment & {
   customer: Customer
