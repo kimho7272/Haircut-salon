@@ -203,22 +203,22 @@ export default function CustomerManagement() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-bold text-gray-500 uppercase tracking-wider">
                     {t('customer_name')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-bold text-gray-500 uppercase tracking-wider">
                     {t('phone_number')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-bold text-gray-500 uppercase tracking-wider">
                     {t('email')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-bold text-gray-500 uppercase tracking-wider">
                     {t('special_notes')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-bold text-gray-500 uppercase tracking-wider">
                     {t('registration_date')}
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-sm font-bold text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -229,10 +229,10 @@ export default function CustomerManagement() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <User className="w-4 h-4 text-blue-600 mr-2" />
-                        <span className="font-medium text-gray-900">{customer.name}</span>
+                        <span className="font-medium text-gray-900 text-sm">{customer.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 text-sm">
                       {customer.phone ? (
                         <div className="flex items-center">
                           <Phone className="w-4 h-4 text-gray-400 mr-2" />
@@ -242,7 +242,7 @@ export default function CustomerManagement() {
                         <span className="text-gray-400">{t('no_phone_number')}</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 text-sm">
                       {customer.email ? (
                         <div className="flex items-center">
                           <Mail className="w-4 h-4 text-gray-400 mr-2" />
@@ -252,7 +252,7 @@ export default function CustomerManagement() {
                         <span className="text-gray-400">{t('no_email')}</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
+                    <td className="px-6 py-4 text-gray-600 text-sm max-w-xs truncate">
                       {customer.notes ? (
                         <div className="flex items-center">
                           <FileText className="w-4 h-4 text-gray-400 mr-2" />

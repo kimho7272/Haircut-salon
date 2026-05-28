@@ -207,22 +207,22 @@ export default function ServiceManagement() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-bold text-gray-500 uppercase tracking-wider">
                     {t('service_name')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-bold text-gray-500 uppercase tracking-wider">
                     {t('price')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-bold text-gray-500 uppercase tracking-wider">
                     {t('duration')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-bold text-gray-500 uppercase tracking-wider">
                     {t('description')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-sm font-bold text-gray-500 uppercase tracking-wider">
                     {t('status')}
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-sm font-bold text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -233,16 +233,16 @@ export default function ServiceManagement() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <Scissors className="w-4 h-4 text-blue-600 mr-2" />
-                        <span className="font-medium text-gray-900">{service.name}</span>
+                        <span className="font-medium text-gray-900 text-sm">{service.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 text-sm font-medium">
                       {formatCurrency(service.price)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 text-sm">
                       {service.duration}{t('minutes')}
                     </td>
-                    <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
+                    <td className="px-6 py-4 text-gray-600 text-sm max-w-xs truncate">
                       {service.description || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
