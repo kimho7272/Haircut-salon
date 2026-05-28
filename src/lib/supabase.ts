@@ -48,7 +48,7 @@ export type Appointment = {
   appointment_date: string
   appointment_time: string
   duration: number
-  status: 'scheduled' | 'completed' | 'cancelled'
+  status: 'scheduled' | 'completed' | 'cancelled' | 'auto_completed'
   notes?: string
   created_at: string
   // Payment info
