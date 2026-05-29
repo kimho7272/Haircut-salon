@@ -425,7 +425,7 @@ export default function SchedulePage() {
       {/* 상단 패널 */}
       <div className="bg-white shadow-sm border-b">
         <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-end justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Calendar className="w-6 h-6 text-blue-600" />
@@ -435,22 +435,24 @@ export default function SchedulePage() {
                 {format(currentDate, language === 'ko' ? 'yyyy년 M월 d일' : 'MMM d, yyyy', { locale: language === 'ko' ? ko : enUS })} {t('weekly_schedule')}
               </p>
             </div>
-            <div className="flex gap-3">
+
+            {/* 주간 네비게이션 버튼들 */}
+            <div className="flex gap-2">
               <button
                 onClick={() => setCurrentDate(addDays(currentDate, -7))}
-                className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-1 text-sm text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
               >
                 {t('previous_week')}
               </button>
               <button
                 onClick={() => setCurrentDate(new Date())}
-                className="px-4 py-2 text-white bg-blue-600 border border-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-1 text-sm text-white bg-blue-600 border border-blue-600 rounded hover:bg-blue-700 transition-colors"
               >
                 {t('today')}
               </button>
               <button
                 onClick={() => setCurrentDate(addDays(currentDate, 7))}
-                className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-1 text-sm text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
               >
                 {t('next_week')}
               </button>
@@ -460,10 +462,10 @@ export default function SchedulePage() {
       </div>
 
       {/* 캘린더 영역 */}
-      <div className="p-3 flex-1 flex flex-col">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1">
+      <div className="flex-1 flex flex-col">
+        <div className="bg-white shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-1">
           {/* 요일 헤더 */}
-          <div className="grid grid-cols-8 border-b border-gray-200 bg-gray-50">
+          <div className="grid border-b border-gray-200 bg-gray-50" style={{ gridTemplateColumns: '80px repeat(7, 1fr)' }}>
             <div className="p-3 border-r border-gray-200 text-center font-medium text-gray-600">{t('time')}</div>
             {weekDays.map((day, index) => {
               const isToday = isSameDay(day, new Date())
@@ -506,8 +508,8 @@ export default function SchedulePage() {
             {hourBlocks.map((hour, hourIndex) => (
               <div
                 key={hour}
-                className="grid grid-cols-8 border-b border-gray-100 last:border-b-0"
-                style={{ minHeight: '80px' }}
+                className="grid border-b border-gray-100 last:border-b-0"
+                style={{ minHeight: '80px', gridTemplateColumns: '80px repeat(7, 1fr)' }}
               >
                 {/* 시간 표시 열 */}
                 <div className="border-r border-gray-200 p-2 text-center text-sm text-gray-600 font-medium bg-gray-50">
@@ -532,33 +534,79 @@ export default function SchedulePage() {
                   const appointmentGroupSizes = new Map<string, number>()
 
                   if (dayAppointments.length > 0) {
-                    // 각 예약에 대해 그 예약의 생명주기 동안의 최대 겹침 수 계산
-                    for (const targetApt of dayAppointments) {
-                      const targetStart = getMinutes(targetApt.appointment_time)
-                      const targetEnd = targetStart + getAppointmentDuration(targetApt)
+                    // Connected Components 알고리즘으로 겹치는 예약 그룹 찾기
+                    const visited = new Set<string>()
+                    const appointmentGroups: AppointmentWithRelations[][] = []
 
-                      // 이 예약의 생명주기와 겹치는 모든 예약들 찾기
-                      const overlappingApts = dayAppointments.filter(apt => {
-                        const aptStart = getMinutes(apt.appointment_time)
-                        const aptEnd = aptStart + getAppointmentDuration(apt)
-                        return aptStart < targetEnd && aptEnd > targetStart
-                      })
+                    // DFS로 연결된 예약들 찾기
+                    const findConnectedGroup = (startApt: AppointmentWithRelations): AppointmentWithRelations[] => {
+                      const group: AppointmentWithRelations[] = []
+                      const stack = [startApt]
 
-                      // 5분 간격으로 최대 동시성 계산 (이 예약의 생명주기 동안)
-                      let maxConcurrentInLifecycle = 0
-                      for (let checkTime = targetStart; checkTime < targetEnd; checkTime += 5) {
-                        let concurrentCount = 0
-                        for (const apt of overlappingApts) {
-                          const aptStart = getMinutes(apt.appointment_time)
-                          const aptEnd = aptStart + getAppointmentDuration(apt)
-                          if (checkTime >= aptStart && checkTime < aptEnd) {
-                            concurrentCount++
+                      while (stack.length > 0) {
+                        const currentApt = stack.pop()!
+                        if (visited.has(currentApt.id)) continue
+
+                        visited.add(currentApt.id)
+                        group.push(currentApt)
+
+                        // 현재 예약과 겹치는 모든 예약들을 스택에 추가
+                        for (const otherApt of dayAppointments) {
+                          if (visited.has(otherApt.id)) continue
+
+                          const currentStart = getMinutes(currentApt.appointment_time)
+                          const currentEnd = currentStart + getAppointmentDuration(currentApt)
+                          const otherStart = getMinutes(otherApt.appointment_time)
+                          const otherEnd = otherStart + getAppointmentDuration(otherApt)
+
+                          // 겹치는지 확인
+                          if (currentStart < otherEnd && otherStart < currentEnd) {
+                            stack.push(otherApt)
                           }
                         }
-                        maxConcurrentInLifecycle = Math.max(maxConcurrentInLifecycle, concurrentCount)
                       }
 
-                      appointmentGroupSizes.set(targetApt.id, maxConcurrentInLifecycle)
+                      return group
+                    }
+
+                    // 모든 예약을 그룹으로 나누기
+                    for (const apt of dayAppointments) {
+                      if (!visited.has(apt.id)) {
+                        const group = findConnectedGroup(apt)
+                        appointmentGroups.push(group)
+                      }
+                    }
+
+                    // 각 그룹별로 최대 동시 겹침 수 계산
+                    for (const group of appointmentGroups) {
+                      // 이 그룹의 모든 시작/끝 이벤트 수집
+                      const events: { time: number, type: 'start' | 'end' }[] = []
+                      for (const apt of group) {
+                        const aptStart = getMinutes(apt.appointment_time)
+                        const aptEnd = aptStart + getAppointmentDuration(apt)
+                        events.push({ time: aptStart, type: 'start' })
+                        events.push({ time: aptEnd, type: 'end' })
+                      }
+
+                      // 시간순 정렬
+                      events.sort((a, b) => a.time - b.time)
+
+                      // Sweep line으로 최대 동시성 계산
+                      let maxConcurrent = 0
+                      let currentConcurrent = 0
+                      for (const event of events) {
+                        if (event.type === 'start') {
+                          currentConcurrent++
+                          maxConcurrent = Math.max(maxConcurrent, currentConcurrent)
+                        } else {
+                          currentConcurrent--
+                        }
+                      }
+
+                      // 이 그룹의 모든 예약에 동일한 컬럼 수 적용
+                      for (const apt of group) {
+                        appointmentGroupSizes.set(apt.id, maxConcurrent)
+                      }
                     }
 
                     // 시간순으로 정렬하여 컬럼 배정
@@ -698,7 +746,7 @@ export default function SchedulePage() {
       </div>
 
       {/* 하단 통계 패널 */}
-      <div className="bg-white border-t shadow-sm mt-0">
+      <div className="bg-white border-t shadow-sm -mt-px">
         <div className="px-3 py-3">
           {(() => {
             const today = new Date()
@@ -928,6 +976,7 @@ export default function SchedulePage() {
         appointment={appointmentToDelete}
         loading={deleteLoading}
       />
+
     </div>
   )
 }

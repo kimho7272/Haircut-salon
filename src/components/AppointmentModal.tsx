@@ -408,9 +408,23 @@ export default function AppointmentModal({
       setServices(servicesData)
       setStaff(staffData)
 
-      // 새 예약 추가 모드에서 서비스가 선택되지 않은 경우 첫 번째 서비스 자동 선택
-      if (mode === 'add' && formData.service_ids.length === 0 && servicesData.length > 0) {
-        setFormData(prev => ({ ...prev, service_ids: [servicesData[0].id] }))
+      // 새 예약 추가 모드에서 자동 선택 처리
+      if (mode === 'add') {
+        // 서비스가 선택되지 않은 경우 첫 번째 서비스 자동 선택
+        if (formData.service_ids.length === 0 && servicesData.length > 0) {
+          setFormData(prev => ({ ...prev, service_ids: [servicesData[0].id] }))
+        }
+
+        // 담당자가 선택되지 않은 경우 첫 번째 직원 자동 선택
+        if (!formData.staff_id && staffData.length > 0) {
+          // staff 역할을 우선으로 정렬된 첫 번째 직원 선택
+          const sortedStaff = [...staffData].sort((a, b) => {
+            if (a.role === 'staff' && b.role === 'admin') return -1
+            if (a.role === 'admin' && b.role === 'staff') return 1
+            return 0
+          })
+          setFormData(prev => ({ ...prev, staff_id: sortedStaff[0].id }))
+        }
       }
     } catch (error) {
       console.error('데이터 로딩 실패:', error)
@@ -1149,7 +1163,6 @@ export default function AppointmentModal({
               onChange={(e) => setFormData(prev => ({ ...prev, staff_id: e.target.value }))}
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
             >
-              <option value="">{t('staff_not_specified')}</option>
               {staff
                 .sort((a, b) => {
                   // Staff 역할을 먼저, Admin 역할을 나중에

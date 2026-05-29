@@ -875,7 +875,7 @@ export default function RevenueManagement() {
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
       <div className="bg-white shadow-sm border-b">
-        <div className="px-6 py-4">
+        <div className="px-3 py-3">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -990,7 +990,7 @@ export default function RevenueManagement() {
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="p-3 space-y-3">
         {loading ? (
           <div className="text-center py-12">
             <div className="text-gray-500">Loading...</div>
@@ -998,7 +998,7 @@ export default function RevenueManagement() {
         ) : (
           <>
             {/* 매출 요약 카드 */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               <div className="bg-white rounded-lg shadow-sm border p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1087,7 +1087,7 @@ export default function RevenueManagement() {
                   }
                 </h2>
               </div>
-              <div className="px-6 py-4">
+              <div className="px-3 py-4">
                 {(periodType === 'monthly'
                   ? Object.keys(revenueData.monthlyRevenue).length === 0
                   : periodType === 'weekly'
@@ -1124,7 +1124,7 @@ export default function RevenueManagement() {
                     {t('no_revenue_data')}
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {Object.entries(revenueData.serviceRevenue)
                       .sort(([,a], [,b]) => b - a)
                       .map(([service, revenue]) => {
@@ -1155,7 +1155,7 @@ export default function RevenueManagement() {
             <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-3 border-b">
                 <h2 className="text-lg font-semibold text-gray-900">
-                  Revenue by Staff
+                  {t('revenue_by_staff')}
                 </h2>
               </div>
               <div className="p-6">
@@ -1164,7 +1164,7 @@ export default function RevenueManagement() {
                     {t('no_revenue_data')}
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {Object.entries(revenueData.staffRevenue)
                       .sort(([,a], [,b]) => b - a)
                       .map(([staff, revenue]) => {
@@ -1213,7 +1213,7 @@ export default function RevenueManagement() {
             </div>
 
             {/* Content */}
-            <div className="px-6 py-4">
+            <div className="px-3 py-4">
               {unpaidAppointments.length === 0 ? (
                 <div className="text-center py-8">
                   <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />

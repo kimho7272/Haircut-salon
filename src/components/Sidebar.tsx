@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { Calendar, Users, Settings, UserCog, DollarSign, Menu, X, LogOut } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useAuth } from '@/contexts/AuthContext'
-import LanguageSelector from '@/components/LanguageSelector'
 import LogoutConfirmModal from '@/components/LogoutConfirmModal'
 
 interface SidebarProps {
@@ -15,7 +14,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentPage, onPageChange, isCollapsed, onToggleCollapse }: SidebarProps) {
-  const { t } = useLanguage()
+  const { t, language, setLanguage } = useLanguage()
   const { user, logout } = useAuth()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
 
@@ -72,7 +71,7 @@ export default function Sidebar({ currentPage, onPageChange, isCollapsed, onTogg
       {/* 사이드바 */}
       <div className={`
         fixed left-0 top-0 h-full bg-white shadow-lg z-50 transition-all duration-300 border-r border-gray-200
-        ${isCollapsed ? 'w-16' : 'w-64'}
+        ${isCollapsed ? 'w-16' : 'w-52'}
       `}>
         {/* 헤더 */}
         <div className="p-4 border-b border-gray-200">
@@ -122,9 +121,45 @@ export default function Sidebar({ currentPage, onPageChange, isCollapsed, onTogg
 
         {/* 사용자 정보 및 설정 */}
         <div className="absolute bottom-4 left-4 right-4 space-y-3">
+          {/* 언어 토글 */}
+          {!isCollapsed ? (
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-gray-600">언어 / Language</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs transition-colors ${language === 'ko' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>
+                  한국어
+                </span>
+                <button
+                  onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
+                  className="relative w-10 h-5 bg-gray-200 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  style={{ backgroundColor: language === 'en' ? '#3B82F6' : '#E5E7EB' }}
+                  title="언어 변경 / Change Language"
+                >
+                  <div
+                    className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200"
+                    style={{ transform: language === 'en' ? 'translateX(20px)' : 'translateX(2px)' }}
+                  />
+                </button>
+                <span className={`text-xs transition-colors ${language === 'en' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>
+                  English
+                </span>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
+              className="w-full flex items-center justify-center p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              title={`언어 변경 / Change Language (${language === 'ko' ? 'KO' : 'EN'})`}
+            >
+              🌐
+            </button>
+          )}
+
           {/* 사용자 정보 */}
           {!isCollapsed && user && (
-            <div className="p-3 bg-gray-50 rounded-lg">
+            <div className="bg-gray-50 rounded-lg p-3">
               <div className="text-sm font-medium text-gray-900">{user.name}</div>
               <div className="text-xs text-gray-500 capitalize">{user.role}</div>
             </div>
@@ -141,9 +176,6 @@ export default function Sidebar({ currentPage, onPageChange, isCollapsed, onTogg
             <LogOut className="w-4 h-4" />
             {!isCollapsed && <span className="text-sm">{t('logout')}</span>}
           </button>
-
-          {/* 언어 선택기 */}
-          <LanguageSelector isCollapsed={isCollapsed} />
         </div>
       </div>
 

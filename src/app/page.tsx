@@ -27,7 +27,7 @@ export default function MainPage() {
               onToggleCollapse={setSidebarCollapsed}
             />
 
-            <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-64'}`}>
+            <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-52'}`}>
               {currentPage === 'schedule' && <SchedulePage />}
               {currentPage === 'customers' && <CustomerManagement />}
               {currentPage === 'services' && <ServiceManagement />}

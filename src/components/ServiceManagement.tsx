@@ -150,7 +150,7 @@ export default function ServiceManagement() {
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
       <div className="bg-white shadow-sm border-b">
-        <div className="px-6 py-4">
+        <div className="px-3 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -173,7 +173,7 @@ export default function ServiceManagement() {
       </div>
 
       {/* 검색 영역 */}
-      <div className="px-6 py-4">
+      <div className="px-3 py-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -187,7 +187,7 @@ export default function ServiceManagement() {
       </div>
 
       {/* 서비스 리스트 */}
-      <div className="px-6 pb-6">
+      <div className="px-3 pb-3">
         {loading ? (
           <div className="text-center py-12">
             <div className="text-gray-500">Loading...</div>
@@ -406,7 +406,7 @@ export default function ServiceManagement() {
             </div>
 
             {/* 내용 */}
-            <div className="px-6 py-4">
+            <div className="px-3 py-4">
               <p className="text-gray-700 mb-4">
                 {t('delete_service_question')}
               </p>
