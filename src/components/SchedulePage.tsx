@@ -40,6 +40,9 @@ export default function SchedulePage() {
     hourBlocks.push(hour)
   }
 
+  // 겹치는 예약이 있어도 오른쪽에 항상 남겨두는 "+" 버튼용 여백 (px, 저해상도 화면 고려해 축소)
+  const ADD_BUTTON_WIDTH = 11
+
   // 스크롤바 숨김 스타일
   const hideScrollbarStyle = `
     .hide-scrollbar::-webkit-scrollbar {
@@ -159,7 +162,8 @@ export default function SchedulePage() {
     const isSaturday = isSameDay(appointmentDate, weekSaturday)
 
     const position = {
-      x: isSaturday ? rect.left - 10 : rect.right + 10, // 토요일은 박스 왼쪽에서 10px 떨어진 곳, 나머지는 오른쪽
+      // 토요일은 박스 왼쪽에서 10px 떨어진 곳, 나머지는 오른쪽 (겹치는 예약 추가용 + 버튼 여백과 겹치지 않도록 그만큼 더 띄움)
+      x: isSaturday ? rect.left - 10 : rect.right + 10 + ADD_BUTTON_WIDTH,
       y: rect.top,
       align: isSaturday ? 'right' : 'left' as 'left' | 'right' // 툴팁 정렬 방향
     }
@@ -282,9 +286,13 @@ export default function SchedulePage() {
     const duration = Math.max(getAppointmentDuration(appointment), 30)
     const heightPercentage = (duration / 60) * 100 // Remove 100% limit for multi-hour appointments
 
-    // 너비와 위치 계산 (겹치는 예약이 있으면 나누어 배치)
-    const width = groupSize > 1 ? `${100 / groupSize}%` : 'calc(100% - 4px)'
-    const left = groupSize > 1 ? `${(groupIndex / groupSize) * 100}%` : '2px'
+    // 너비와 위치 계산 (겹치는 예약이 있으면 나누어 배치, 오른쪽엔 항상 + 버튼용 여백을 남김)
+    const width = groupSize > 1
+      ? `calc((100% - ${ADD_BUTTON_WIDTH}px) / ${groupSize})`
+      : `calc(100% - 4px - ${ADD_BUTTON_WIDTH}px)`
+    const left = groupSize > 1
+      ? `calc((100% - ${ADD_BUTTON_WIDTH}px) * ${groupIndex} / ${groupSize})`
+      : '2px'
 
     // 문제가 되는 케이스만 디버깅 (left >= 100% 또는 비정상적인 값)
     if (groupIndex >= groupSize || (typeof left === 'string' && parseInt(left) >= 100)) {
@@ -303,7 +311,8 @@ export default function SchedulePage() {
       height: `${heightPercentage}%`,
       width: width,
       left: left,
-      minHeight: '40px'
+      minHeight: '40px',
+      durationMinutes: duration
     }
   }
 
@@ -692,47 +701,84 @@ export default function SchedulePage() {
                       {/* 예약들 */}
                       {displayAppointments.map((appointment) => {
                         const style = calculateAppointmentStyle(appointment, appointment.groupIndex, appointment.groupSize)
+                        const isRightmost = appointment.groupIndex === appointment.groupSize - 1
+                        const [aptHour, aptMinute] = appointment.appointment_time.slice(0, 5).split(':').map(Number)
+
+                        // 30분 단위로 겹치는 예약 추가 슬롯 생성 (예약 소요시간만큼 분할)
+                        const addSlotCount = Math.max(1, Math.round(style.durationMinutes / 30))
+                        const addSlots = Array.from({ length: addSlotCount }, (_, i) => {
+                          const totalMinutes = aptHour * 60 + aptMinute + i * 30
+                          return { hour: Math.floor(totalMinutes / 60) % 24, minute: totalMinutes % 60 }
+                        })
+
                         return (
                           <div
                             key={appointment.id}
-                            className={`absolute rounded-md border cursor-pointer transition-all hover:shadow-md z-10 ${getStatusColor(appointment)}`}
+                            className="absolute group/appt z-10"
                             style={{
-                              ...style
+                              top: style.top,
+                              height: style.height,
+                              left: style.left,
+                              width: isRightmost ? `calc(${style.width} + ${ADD_BUTTON_WIDTH}px)` : style.width,
+                              minHeight: style.minHeight
                             }}
-                            onClick={() => handleEditAppointment(appointment)}
-                            onMouseEnter={(e) => handleMouseEnter(appointment, e)}
-                            onMouseLeave={handleMouseLeave}
                           >
-                            <div className="p-1 h-full overflow-hidden">
-                              <div className="flex justify-between items-start mb-0.5">
-                                <div className="font-medium text-xs">
-                                  {appointment.appointment_time.slice(0, 5)}
+                            <div
+                              className={`absolute inset-y-0 left-0 rounded-md border cursor-pointer transition-all hover:shadow-md ${getStatusColor(appointment)}`}
+                              style={{ width: isRightmost ? `calc(100% - ${ADD_BUTTON_WIDTH}px)` : '100%' }}
+                              onClick={() => handleEditAppointment(appointment)}
+                              onMouseEnter={(e) => handleMouseEnter(appointment, e)}
+                              onMouseLeave={handleMouseLeave}
+                            >
+                              <div className="p-1 h-full overflow-hidden">
+                                <div className="flex justify-between items-start mb-0.5">
+                                  <div className="font-medium text-xs">
+                                    {appointment.appointment_time.slice(0, 5)}
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteClick(appointment)
+                                    }}
+                                    className="p-0.5 text-gray-500 hover:text-red-600 transition-colors"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDeleteClick(appointment)
-                                  }}
-                                  className="p-0.5 text-gray-500 hover:text-red-600 transition-colors"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
-                              <div className="text-xs text-gray-700 truncate">
-                                {appointment.customer?.name || t('customer_name_unknown')}
-                              </div>
-                              <div className="text-xs text-gray-600 truncate">
-                                {appointment.services && appointment.services.length > 0 ? (
-                                  appointment.services.length === 1 ? (
-                                    appointment.services[0].name
+                                <div className="text-xs text-gray-700 truncate">
+                                  {appointment.customer?.name || t('customer_name_unknown')}
+                                </div>
+                                <div className="text-xs text-gray-600 truncate">
+                                  {appointment.services && appointment.services.length > 0 ? (
+                                    appointment.services.length === 1 ? (
+                                      appointment.services[0].name
+                                    ) : (
+                                      `${appointment.services[0].name} 외 ${appointment.services.length - 1}개`
+                                    )
                                   ) : (
-                                    `${appointment.services[0].name} 외 ${appointment.services.length - 1}개`
-                                  )
-                                ) : (
-                                  t('service_name_unknown')
-                                )}
+                                    t('service_name_unknown')
+                                  )}
+                                </div>
                               </div>
                             </div>
+                            {isRightmost && addSlots.map((slot, slotIndex) => (
+                              <div
+                                key={slotIndex}
+                                className="absolute right-0 flex items-center justify-center cursor-pointer opacity-0 group-hover/appt:opacity-100 hover:bg-blue-50 rounded transition-opacity z-20"
+                                style={{
+                                  width: `${ADD_BUTTON_WIDTH}px`,
+                                  top: `${(slotIndex / addSlotCount) * 100}%`,
+                                  height: `${100 / addSlotCount}%`
+                                }}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleAddAppointment(day, slot.hour, slot.minute)
+                                }}
+                                title={language === 'ko' ? '같은 시간에 예약 추가' : 'Add appointment at same time'}
+                              >
+                                <Plus className="w-2.5 h-2.5 text-gray-400" />
+                              </div>
+                            ))}
                           </div>
                         )
                       })}
