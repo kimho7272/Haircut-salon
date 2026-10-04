@@ -4,10 +4,11 @@ import { useState, useEffect, useRef } from 'react'
 import { X, User, Phone, Calendar, Clock, Scissors, CreditCard, Search, ChevronDown, ChevronUp, History } from 'lucide-react'
 import { format } from 'date-fns'
 import { ko, enUS } from 'date-fns/locale'
-import { getActiveServices, getActiveStaff, getCustomers, saveCustomer, saveAppointment, updateAppointment, getCustomerHistory, type AppointmentWithRelations } from '@/utils/supabaseService'
+import { getActiveServices, getActiveStaff, getCustomers, saveCustomer, saveAppointment, updateAppointment, getCustomerHistory, findDuplicateAppointment, type AppointmentWithRelations } from '@/utils/supabaseService'
 import { type Service, type Staff, type Customer } from '@/lib/supabase'
 import ErrorModal, { createPhoneErrorModal, createNamePhoneErrorModal, createGeneralErrorModal } from './ErrorModal'
 import DuplicateCustomerModal from './DuplicateCustomerModal'
+import DuplicateAppointmentModal from './DuplicateAppointmentModal'
 import { useLanguage } from '@/contexts/LanguageContext'
 
 interface AppointmentModalProps {
@@ -271,6 +272,13 @@ export default function AppointmentModal({
     existingCustomers: [] as Customer[]
   })
 
+  // 중복 예약 확인 모달 상태 (완전히 동일한 예약이 이미 있을 때)
+  const [duplicateAppointmentModal, setDuplicateAppointmentModal] = useState({
+    isOpen: false,
+    pendingCustomerId: null as string | null,
+    existingAppointment: null as AppointmentWithRelations | null
+  })
+
   // 고객 방문 기록 상태
   const [customerHistory, setCustomerHistory] = useState<AppointmentWithRelations[]>([])
   const [showHistory, setShowHistory] = useState(false)
@@ -520,11 +528,32 @@ export default function AppointmentModal({
   }
 
   // 실제 예약 생성 로직
-  const createAppointmentWithCustomer = async (customerId: string) => {
+  const createAppointmentWithCustomer = async (customerId: string, skipDuplicateCheck: boolean = false) => {
     const selectedStaff = formData.staff_id ? staff.find(s => s.id === formData.staff_id) : null
 
     if (selectedServices.length === 0) {
       throw new Error(t('select_service_required'))
+    }
+
+    // 완전히 동일한 예약(같은 고객/날짜/시간/담당자/서비스)이 이미 있는지 확인
+    if (!skipDuplicateCheck) {
+      const duplicate = await findDuplicateAppointment({
+        customer_id: customerId,
+        appointment_date: selectedAppointmentDate,
+        appointment_time: formData.appointment_time,
+        staff_id: formData.staff_id || undefined,
+        service_ids: formData.service_ids,
+        excludeId: mode === 'edit' ? appointment?.id : undefined
+      })
+
+      if (duplicate) {
+        setDuplicateAppointmentModal({
+          isOpen: true,
+          pendingCustomerId: customerId,
+          existingAppointment: duplicate
+        })
+        return
+      }
     }
 
     console.log('Saving appointment with data:', {
@@ -572,6 +601,37 @@ export default function AppointmentModal({
     onSave(result)
     onClose()
     resetForm()
+  }
+
+  // 중복 예약 확인 모달에서 "그래도 예약" 선택 시
+  const handleConfirmDuplicateAppointment = async () => {
+    const customerId = duplicateAppointmentModal.pendingCustomerId
+    setDuplicateAppointmentModal({ isOpen: false, pendingCustomerId: null, existingAppointment: null })
+    if (!customerId) return
+
+    setLoading(true)
+    try {
+      await createAppointmentWithCustomer(customerId, true)
+    } catch (error: any) {
+      console.error('예약 저장 실패:', error)
+      const errorConfig = createGeneralErrorModal(
+        error.message || t('appointment_save_failed'),
+        error.code ? `${t('error_code')}: ${error.code}` : undefined
+      )
+      setErrorModal({
+        isOpen: true,
+        title: errorConfig.title,
+        message: errorConfig.message,
+        details: errorConfig.details || '',
+        type: errorConfig.type
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCancelDuplicateAppointment = () => {
+    setDuplicateAppointmentModal({ isOpen: false, pendingCustomerId: null, existingAppointment: null })
   }
 
   // 새 고객 저장 및 예약 생성
@@ -702,6 +762,11 @@ export default function AppointmentModal({
     setDuplicateModal({
       isOpen: false,
       existingCustomers: []
+    })
+    setDuplicateAppointmentModal({
+      isOpen: false,
+      pendingCustomerId: null,
+      existingAppointment: null
     })
     setCustomerHistory([])
     setShowHistory(false)
@@ -1296,6 +1361,15 @@ export default function AppointmentModal({
         existingCustomers={duplicateModal.existingCustomers}
         onUseExisting={handleUseExistingCustomer}
         onReEnterInfo={handleReEnterInfo}
+      />
+
+      {/* 중복 예약 확인 모달 */}
+      <DuplicateAppointmentModal
+        isOpen={duplicateAppointmentModal.isOpen}
+        onClose={handleCancelDuplicateAppointment}
+        onConfirm={handleConfirmDuplicateAppointment}
+        existingAppointment={duplicateAppointmentModal.existingAppointment}
+        loading={loading}
       />
     </>
   )

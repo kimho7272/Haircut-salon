@@ -178,6 +178,12 @@ const translations = {
     'delete_warning': '삭제된 예약은 복구할 수 없습니다.',
     'deleting': '삭제 중...',
 
+    // 중복 예약 확인 모달
+    'duplicate_appointment_title': '중복 예약 확인',
+    'duplicate_appointment_question': '완전히 동일한 예약이 이미 존재합니다. 그래도 예약하시겠습니까?',
+    'duplicate_appointment_existing_label': '기존 예약',
+    'book_anyway': '그래도 예약',
+
     // 관리자 메뉴
     'admin_menu': '관리자 메뉴',
     'service_management': '서비스 관리',
@@ -482,6 +488,12 @@ const translations = {
     'memo_label_colon': 'Memo:',
     'delete_warning': 'Deleted appointments cannot be recovered.',
     'deleting': 'Deleting...',
+
+    // 중복 예약 확인 모달
+    'duplicate_appointment_title': 'Duplicate Appointment',
+    'duplicate_appointment_question': 'An identical appointment already exists. Do you want to book it anyway?',
+    'duplicate_appointment_existing_label': 'Existing appointment',
+    'book_anyway': 'Book Anyway',
 
     // 관리자 메뉴
     'admin_menu': 'Admin Menu',

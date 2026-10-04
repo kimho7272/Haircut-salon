@@ -47,7 +47,7 @@ const saveAppointmentServices = async (appointmentId: string, serviceIds: string
 }
 
 // Helper function to get appointment services
-const getAppointmentServices = async (appointmentIds: string[]) => {
+export const getAppointmentServices = async (appointmentIds: string[]) => {
   if (appointmentIds.length === 0) return []
 
   const { data, error } = await supabase
@@ -189,6 +189,69 @@ export const getAppointmentsByDateRange = async (
   )
 
   return appointmentsWithServices
+}
+
+// 예약 내용이 완전히 동일한(같은 고객/날짜/시간/담당자/서비스) 예약이 있는지 확인
+export const findDuplicateAppointment = async (params: {
+  customer_id: string
+  appointment_date: string
+  appointment_time: string
+  staff_id?: string
+  service_ids: string[]
+  excludeId?: string
+}): Promise<AppointmentWithRelations | null> => {
+  let query = supabase
+    .from('appointments')
+    .select(`
+      *,
+      customer:customers(id, name, phone, email),
+      staff:staff(id, name, role)
+    `)
+    .eq('customer_id', params.customer_id)
+    .eq('appointment_date', params.appointment_date)
+    .eq('appointment_time', params.appointment_time)
+    .neq('status', 'cancelled')
+
+  if (params.excludeId) {
+    query = query.neq('id', params.excludeId)
+  }
+
+  const { data: candidates, error } = await query
+
+  if (error) {
+    console.error('중복 예약 확인 실패:', error)
+    return null
+  }
+
+  if (!candidates || candidates.length === 0) return null
+
+  const normalizedTargetServices = [...params.service_ids].sort().join(',')
+  const targetStaffId = params.staff_id || ''
+
+  for (const candidate of candidates) {
+    const candidateServicesData = await getAppointmentServices([candidate.id])
+    let candidateServiceIds = candidateServicesData
+      .filter(item => item.appointment_id === candidate.id && item.service)
+      .flatMap(item => Array.isArray(item.service) ? item.service : [item.service!])
+      .map(service => service.id)
+
+    if (candidateServiceIds.length === 0 && candidate.service_id) {
+      candidateServiceIds = [candidate.service_id]
+    }
+
+    const normalizedCandidateServices = [...candidateServiceIds].sort().join(',')
+    const candidateStaffId = candidate.staff_id || ''
+
+    if (normalizedCandidateServices === normalizedTargetServices && candidateStaffId === targetStaffId) {
+      const services = candidateServicesData
+        .filter(item => item.appointment_id === candidate.id && item.service)
+        .flatMap(item => Array.isArray(item.service) ? item.service : [item.service!])
+
+      return { ...candidate, services }
+    }
+  }
+
+  return null
 }
 
 // 예약 저장 (다중 서비스 지원 with fallback)
