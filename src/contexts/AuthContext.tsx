@@ -3,19 +3,22 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { type User, type Session, type AuthChangeEvent } from '@supabase/supabase-js'
 import { supabaseClient, getUserProfile, type AuthUser } from '@/lib/supabase-auth'
-import { setCurrentSalonId } from '@/utils/supabaseService'
+import { setCurrentSalonId, getSalon, type Salon } from '@/utils/supabaseService'
 
 interface AuthContextType {
   user: AuthUser | null
+  salon: Salon | null
   login: (email: string, password: string) => Promise<boolean>
   logout: () => void
   isLoading: boolean
+  refreshSalon: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [salon, setSalon] = useState<Salon | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   // 세션 관리를 위한 타이머 참조
@@ -47,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await loadUserProfile(session.user)
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
+        setSalon(null)
         setCurrentSalonId(null)
       }
     })
@@ -99,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: profile.role,
           phone: profile.phone
         })
+        setSalon(await getSalon())
       } else {
         console.error('Failed to load user profile or missing salon_id')
         setCurrentSalonId(null)
@@ -109,6 +114,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCurrentSalonId(null)
       await supabaseClient.auth.signOut()
     }
+  }
+
+  const refreshSalon = async () => {
+    setSalon(await getSalon())
   }
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -143,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await supabaseClient.auth.signOut()
       setUser(null)
+      setSalon(null)
       setCurrentSalonId(null)
     } catch (error) {
       console.error('Logout error:', error)
@@ -150,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, salon, login, logout, isLoading, refreshSalon }}>
       {children}
     </AuthContext.Provider>
   )

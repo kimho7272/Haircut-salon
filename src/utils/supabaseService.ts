@@ -1,7 +1,7 @@
-import { supabase, type Appointment, type Customer, type Staff, type Service, type AppointmentService } from '@/lib/supabase'
+import { supabase, type Appointment, type Customer, type Staff, type Service, type AppointmentService, type Salon } from '@/lib/supabase'
 
 // Re-export types for convenience
-export type { Customer, Staff, Service, Appointment }
+export type { Customer, Staff, Service, Appointment, Salon }
 
 // Extended appointment type with relation data
 export type AppointmentWithRelations = Appointment & {
@@ -439,6 +439,38 @@ export const deleteAppointment = async (id: string): Promise<boolean> => {
   }
 
   return true
+}
+
+// 현재 로그인한 사용자가 속한 미용실(tenant) 정보 조회
+export const getSalon = async (): Promise<Salon | null> => {
+  const { data, error } = await supabase
+    .from('salons')
+    .select('*')
+    .eq('id', requireSalonId())
+    .single()
+
+  if (error) {
+    console.error('살롱 조회 실패:', error)
+    return null
+  }
+
+  return data
+}
+
+// 같은 미용실의 로그인 계정(user_profiles) 목록 조회 — 좌석 수 계산용
+export const getSalonMembers = async (): Promise<{ id: string; name: string; role: 'admin' | 'staff'; user_id: string }[]> => {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('id, name, role, user_id')
+    .eq('salon_id', requireSalonId())
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error('계정 목록 조회 실패:', error)
+    throw error
+  }
+
+  return data || []
 }
 
 // 고객 조회

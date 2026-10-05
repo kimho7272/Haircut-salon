@@ -15,7 +15,7 @@ interface SidebarProps {
 
 export default function Sidebar({ currentPage, onPageChange, isCollapsed, onToggleCollapse }: SidebarProps) {
   const { t, language, setLanguage } = useLanguage()
-  const { user, logout } = useAuth()
+  const { user, salon, logout } = useAuth()
   const [showLogoutModal, setShowLogoutModal] = useState(false)
 
   const baseMenuItems = [
@@ -79,7 +79,7 @@ export default function Sidebar({ currentPage, onPageChange, isCollapsed, onTogg
             {!isCollapsed && (
               <div>
                 <h1 className="font-bold text-lg text-gray-900">
-                  {t('salon_name')}
+                  {salon?.name || t('salon_name')}
                 </h1>
                 <p className="text-sm text-gray-600">{t('management_system')}</p>
               </div>

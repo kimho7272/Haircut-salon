@@ -17,8 +17,6 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const salonName = process.env.NEXT_PUBLIC_SALON_NAME || 'Hair Salon'
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -59,7 +57,7 @@ export default function LoginForm() {
               {t('welcome_to')}
             </h1>
             <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-700 to-pink-700 mb-4">
-              {salonName}
+              {t('product_name')}
             </h2>
             <div className="flex justify-center space-x-1 mb-6">
               <div className="h-1 w-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded"></div>
@@ -76,7 +74,7 @@ export default function LoginForm() {
               {t('sign_in_to_account')}
             </h3>
             <p className="text-sm text-gray-600 mb-6">
-              {salonName} {t('management_system')}
+              {t('product_tagline')}
             </p>
 
             <form className="space-y-6" onSubmit={handleSubmit}>
@@ -153,6 +151,13 @@ export default function LoginForm() {
                   {loading ? t('signing_in') : t('sign_in')}
                 </button>
               </div>
+
+              <p className="text-center text-sm text-gray-600">
+                {t('login_no_account')}{' '}
+                <a href="/signup" className="text-purple-600 hover:text-purple-700 font-medium">
+                  {t('login_go_signup')}
+                </a>
+              </p>
             </form>
           </div>
         </div>

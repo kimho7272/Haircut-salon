@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, UserCog, Plus, Edit2, X, Trash2 } from 'lucide-react'
-import { getStaff, saveStaff, updateStaff, deleteStaff, type Staff } from '@/utils/supabaseService'
+import { Search, UserCog, Plus, Edit2, X, Trash2, KeyRound, Mail } from 'lucide-react'
+import { getStaff, saveStaff, updateStaff, deleteStaff, getSalonMembers, type Staff } from '@/utils/supabaseService'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 
 interface StaffFormData {
   name: string
@@ -13,10 +15,102 @@ interface StaffFormData {
 
 export default function StaffManagement() {
   const { t } = useLanguage()
+  const { salon, refreshSalon } = useAuth()
   const [staff, setStaff] = useState<Staff[]>([])
   const [filteredStaff, setFilteredStaff] = useState<Staff[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+
+  // 로그인 계정(좌석) 관련 상태
+  const [members, setMembers] = useState<{ id: string; name: string; role: 'admin' | 'staff'; user_id: string }[]>([])
+  const [showInviteModal, setShowInviteModal] = useState(false)
+  const [inviteForm, setInviteForm] = useState({ name: '', email: '' })
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [inviteError, setInviteError] = useState('')
+  const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [upgradeLoading, setUpgradeLoading] = useState(false)
+
+  const seatLimitReached = salon?.plan === 'free' && members.length >= 1
+
+  useEffect(() => {
+    fetchMembers()
+  }, [])
+
+  const fetchMembers = async () => {
+    try {
+      const data = await getSalonMembers()
+      setMembers(data)
+    } catch (error) {
+      console.error('계정 목록 조회 실패:', error)
+    }
+  }
+
+  const openInviteModal = () => {
+    setInviteForm({ name: '', email: '' })
+    setInviteError('')
+    setInviteSuccess(false)
+    setShowInviteModal(true)
+  }
+
+  const handleInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setInviteLoading(true)
+    setInviteError('')
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch('/api/staff-invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify(inviteForm)
+      })
+      const result = await response.json()
+
+      if (!response.ok) {
+        if (result.error === 'seat_limit_reached') {
+          setInviteError(t('seat_limit_upgrade_prompt'))
+        } else if (result.error === 'email_taken') {
+          setInviteError(t('invite_error_email_taken'))
+        } else {
+          setInviteError(t('invite_error_generic'))
+        }
+        return
+      }
+
+      setInviteSuccess(true)
+      await fetchMembers()
+    } catch (error) {
+      setInviteError(t('invite_error_generic'))
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  const handleUpgradeClick = async () => {
+    setUpgradeLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token}` }
+      })
+      const result = await response.json()
+
+      if (!response.ok || !result.url) {
+        alert(t('billing_not_configured'))
+        return
+      }
+
+      window.location.href = result.url
+    } catch (error) {
+      alert(t('billing_not_configured'))
+    } finally {
+      setUpgradeLoading(false)
+    }
+  }
 
   // 모달 상태
   const [showModal, setShowModal] = useState(false)
@@ -160,6 +254,48 @@ export default function StaffManagement() {
               {t('add_new_staff')}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* 로그인 계정(좌석) 관리 */}
+      <div className="px-3 py-3">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-blue-600" />
+              <h2 className="font-bold text-gray-900">{t('login_accounts_section')}</h2>
+              <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                salon?.plan === 'paid' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-700'
+              }`}>
+                {salon?.plan === 'paid' ? t('plan_paid') : t('plan_free')}
+              </span>
+              <span className="text-sm text-gray-600">
+                {t('seats_used')}: {members.length}
+              </span>
+            </div>
+            {seatLimitReached ? (
+              <button
+                onClick={handleUpgradeClick}
+                disabled={upgradeLoading}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors text-sm"
+              >
+                {t('upgrade_button')}
+              </button>
+            ) : (
+              <button
+                onClick={openInviteModal}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm"
+              >
+                <Plus className="w-4 h-4" />
+                {t('invite_staff_account')}
+              </button>
+            )}
+          </div>
+          {seatLimitReached && (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">
+              {t('seat_limit_reached_title')} — {t('seat_limit_upgrade_prompt')}
+            </p>
+          )}
         </div>
       </div>
 
@@ -409,6 +545,94 @@ export default function StaffManagement() {
                 {deleteLoading ? t('deleting') : t('delete')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 직원 계정 초대 모달 */}
+      {showInviteModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-transparent flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl border-2 border-gray-400 max-w-md w-full">
+            <div className="flex items-center justify-between py-2 px-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-900">{t('invite_staff_modal_title')}</h2>
+              <button
+                onClick={() => setShowInviteModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {inviteSuccess ? (
+              <div className="px-6 py-6 text-center space-y-4">
+                <p className="text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-3">
+                  {t('invite_success')}
+                </p>
+                <button
+                  onClick={() => setShowInviteModal(false)}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  {t('close')}
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleInviteSubmit} className="px-6 py-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('invite_staff_name_label')} *
+                  </label>
+                  <div className="relative">
+                    <UserCog className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      required
+                      value={inviteForm.name}
+                      onChange={(e) => setInviteForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('email')} *
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="email"
+                      required
+                      value={inviteForm.email}
+                      onChange={(e) => setInviteForm(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {inviteError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+                    {inviteError}
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowInviteModal(false)}
+                    className="flex-1 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={inviteLoading}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {inviteLoading ? t('invite_sending') : t('invite_submit')}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

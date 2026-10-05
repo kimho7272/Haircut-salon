@@ -12,9 +12,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// 이 앱은 여러 미용실이 함께 쓰는 멀티테넌트 서비스라 특정 미용실 이름을
+// 타이틀에 고정하지 않음 (NEXT_PUBLIC_SALON_NAME은 더 이상 쓰지 않음)
 export const metadata: Metadata = {
-  title: process.env.NEXT_PUBLIC_SALON_NAME || "미용실 스케쥴 관리",
-  description: "간편하고 직관적인 미용실 예약 관리 시스템",
+  title: "RyanSuite Salon",
+  description: "미용실 예약·고객·매출 관리를 한 곳에서",
 };
 
 export default function RootLayout({

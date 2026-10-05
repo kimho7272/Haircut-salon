@@ -1,0 +1,197 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Scissors, Sparkles, Store, User, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext'
+import LanguageSelector from '@/components/LanguageSelector'
+import { supabase } from '@/lib/supabase'
+
+function SignupForm() {
+  const { t } = useLanguage()
+  const router = useRouter()
+
+  const [formData, setFormData] = useState({
+    salonName: '',
+    adminName: '',
+    email: '',
+    password: ''
+  })
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!formData.salonName.trim() || !formData.adminName.trim() || !formData.email.trim() || formData.password.length < 6) {
+      setError(t('signup_error_invalid'))
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const response = await fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+      const result = await response.json()
+
+      if (!response.ok) {
+        if (result.error === 'email_taken') {
+          setError(t('signup_error_email_taken'))
+        } else {
+          setError(t('signup_error_generic'))
+        }
+        setLoading(false)
+        return
+      }
+
+      // 가입 성공 - 바로 로그인 처리 (AuthContext의 onAuthStateChange가 세션을 감지함)
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password
+      })
+
+      if (signInError) {
+        // 가입은 됐지만 자동 로그인만 실패한 경우 — 로그인 페이지로 보냄
+        router.push('/')
+        return
+      }
+
+      router.push('/')
+    } catch (err) {
+      setError(t('signup_error_generic'))
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <div className="flex justify-center items-center space-x-2 mb-4">
+            <Sparkles className="h-8 w-8 text-pink-500" />
+            <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg">
+              <Scissors className="h-8 w-8 text-white" />
+            </div>
+            <Sparkles className="h-8 w-8 text-purple-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-2">
+            {t('product_name')}
+          </h1>
+          <p className="text-gray-600 mb-6">{t('product_tagline')}</p>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-white/20">
+            <h3 className="text-xl font-semibold text-gray-900 mb-1">
+              {t('signup_pitch_title')}
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              {t('signup_pitch_body')}
+            </p>
+
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div className="relative">
+                <Store className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  required
+                  placeholder={t('signup_salon_name_placeholder')}
+                  aria-label={t('signup_salon_name_label')}
+                  className="appearance-none rounded-lg relative block w-full px-12 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  value={formData.salonName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, salonName: e.target.value }))}
+                />
+              </div>
+
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  required
+                  placeholder={t('signup_admin_name_label')}
+                  className="appearance-none rounded-lg relative block w-full px-12 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  value={formData.adminName}
+                  onChange={(e) => setFormData(prev => ({ ...prev, adminName: e.target.value }))}
+                />
+              </div>
+
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  placeholder={t('email')}
+                  className="appearance-none rounded-lg relative block w-full px-12 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                />
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="new-password"
+                  placeholder={t('password')}
+                  className="appearance-none rounded-lg relative block w-full px-12 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm pr-12"
+                  value={formData.password}
+                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                  )}
+                </button>
+              </div>
+
+              <div className="flex justify-end">
+                <LanguageSelector isCollapsed={false} />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                {loading ? t('signup_submitting') : t('signup_submit')}
+              </button>
+
+              <p className="text-center text-sm text-gray-600">
+                {t('signup_have_account')}{' '}
+                <a href="/" className="text-purple-600 hover:text-purple-700 font-medium">
+                  {t('signup_go_login')}
+                </a>
+              </p>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <LanguageProvider>
+      <SignupForm />
+    </LanguageProvider>
+  )
+}
