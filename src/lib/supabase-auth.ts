@@ -1,34 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+// 로그인(auth)과 실제 데이터 조회가 반드시 같은 세션을 봐야 RLS가 동작하므로,
+// 별도 클라이언트를 새로 만들지 않고 supabaseService.ts와 동일한 단일 클라이언트를 재사용한다.
+import { supabase as supabaseClient } from './supabase'
 
-// 클라이언트 사이드 Supabase 클라이언트 (세션 기반 저장소 사용)
-export const supabaseClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      persistSession: true,
-      storageKey: 'haircut-auth',
-      storage: {
-        getItem: (key: string) => {
-          if (typeof window !== 'undefined') {
-            return sessionStorage.getItem(key)
-          }
-          return null
-        },
-        setItem: (key: string, value: string) => {
-          if (typeof window !== 'undefined') {
-            sessionStorage.setItem(key, value)
-          }
-        },
-        removeItem: (key: string) => {
-          if (typeof window !== 'undefined') {
-            sessionStorage.removeItem(key)
-          }
-        }
-      }
-    }
-  }
-)
+export { supabaseClient }
 
 // 사용자 프로필 타입 정의
 export interface UserProfile {

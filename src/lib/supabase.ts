@@ -3,14 +3,35 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// Create Supabase client with environment-aware settings
-const isDevelopment = process.env.NODE_ENV === 'development'
-
+// 앱 전체에서 쓰는 단 하나의 Supabase 클라이언트.
+// 과거에는 supabase-auth.ts가 별도의 createClient()를 만들어 로그인을 처리했는데,
+// 서로 세션을 공유하지 않아서 실제 데이터 요청(이 클라이언트)은 로그인 여부와
+// 무관하게 항상 익명(anon) 권한으로 나갔음 — RLS를 auth.uid() 기반으로 걸려면
+// 로그인과 데이터 요청이 반드시 같은 클라이언트여야 해서 하나로 합쳤음.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: !isDevelopment, // Enable session persistence in production
-    autoRefreshToken: !isDevelopment, // Enable auto refresh in production
+    persistSession: true,
+    autoRefreshToken: true,
     detectSessionInUrl: false, // Keep disabled for security
+    storageKey: 'haircut-auth',
+    storage: {
+      getItem: (key: string) => {
+        if (typeof window !== 'undefined') {
+          return sessionStorage.getItem(key)
+        }
+        return null
+      },
+      setItem: (key: string, value: string) => {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem(key, value)
+        }
+      },
+      removeItem: (key: string) => {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem(key)
+        }
+      }
+    }
   },
 })
 
