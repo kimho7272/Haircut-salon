@@ -15,8 +15,22 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 })
 
 // Type definitions for our database
+
+// Tenant (미용실) — multi-tenant 전환용
+export type Salon = {
+  id: string
+  name: string
+  slug: string
+  plan: 'free' | 'paid'
+  status: 'trial' | 'active' | 'suspended'
+  owner_user_id?: string
+  created_at: string
+  updated_at: string
+}
+
 export type Customer = {
   id: string
+  salon_id: string
   name: string
   phone?: string
   email?: string
@@ -27,6 +41,7 @@ export type Customer = {
 
 export type Staff = {
   id: string
+  salon_id: string
   name: string
   role: 'admin' | 'staff'
   active: boolean
@@ -35,6 +50,7 @@ export type Staff = {
 
 export type Service = {
   id: string
+  salon_id: string
   name: string
   price: number
   duration: number // in minutes
@@ -44,6 +60,7 @@ export type Service = {
 
 export type Appointment = {
   id: string
+  salon_id: string
   customer_id: string
   staff_id?: string
   service_id: string

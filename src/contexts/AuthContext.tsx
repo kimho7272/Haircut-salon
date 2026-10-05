@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { type User, type Session, type AuthChangeEvent } from '@supabase/supabase-js'
-import { supabaseClient, getUserProfile, upsertUserProfile, type AuthUser } from '@/lib/supabase-auth'
+import { supabaseClient, getUserProfile, type AuthUser } from '@/lib/supabase-auth'
+import { setCurrentSalonId } from '@/utils/supabaseService'
 
 interface AuthContextType {
   user: AuthUser | null
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await loadUserProfile(session.user)
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
+        setCurrentSalonId(null)
       }
     })
 
@@ -83,37 +85,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadUserProfile = async (authUser: User) => {
     try {
-      let profile = await getUserProfile(authUser.id)
+      const profile = await getUserProfile(authUser.id)
 
-      if (!profile) {
-        console.log('Profile not found, creating default profile...')
-        // 프로필이 없으면 기본 프로필 생성 시도
-        const defaultProfile = {
-          user_id: authUser.id,
-          name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
-          role: (authUser.email === 'admin@illyhair.com' ? 'admin' : 'staff') as 'admin' | 'staff'
-        }
-
-        const success = await upsertUserProfile(defaultProfile)
-        if (success) {
-          profile = await getUserProfile(authUser.id)
-        }
-      }
-
-      if (profile) {
+      // salon_id가 없는 프로필은 어느 미용실에도 속하지 않은 상태이므로
+      // (멀티테넌트 전환 후에는 정상적인 가입/초대 흐름을 거치지 않은 경우) 로그인시킬 수 없음
+      if (profile && profile.salon_id) {
+        setCurrentSalonId(profile.salon_id)
         setUser({
           id: authUser.id,
           email: authUser.email || '',
+          salon_id: profile.salon_id,
           name: profile.name,
           role: profile.role,
           phone: profile.phone
         })
       } else {
-        console.error('Failed to create/load user profile')
+        console.error('Failed to load user profile or missing salon_id')
+        setCurrentSalonId(null)
         await supabaseClient.auth.signOut()
       }
     } catch (error) {
       console.error('Error loading user profile:', error)
+      setCurrentSalonId(null)
       await supabaseClient.auth.signOut()
     }
   }
@@ -150,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await supabaseClient.auth.signOut()
       setUser(null)
+      setCurrentSalonId(null)
     } catch (error) {
       console.error('Logout error:', error)
     }

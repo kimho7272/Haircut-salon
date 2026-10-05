@@ -10,6 +10,24 @@ export type AppointmentWithRelations = Appointment & {
   services: Service[] // Changed from single service to array
 }
 
+// 현재 로그인한 사용자가 속한 미용실(tenant) id — 로그인 시 AuthContext가 설정함.
+// 이 모듈은 브라우저에서만 실행되는 클라이언트 컴포넌트에서 쓰이므로 탭/세션당
+// 인스턴스가 분리되어 있어 여러 사용자 간 값이 섞일 위험이 없음.
+let currentSalonId: string | null = null
+
+export const setCurrentSalonId = (salonId: string | null) => {
+  currentSalonId = salonId
+}
+
+export const getCurrentSalonId = () => currentSalonId
+
+const requireSalonId = (): string => {
+  if (!currentSalonId) {
+    throw new Error('salon_id가 설정되지 않았습니다. 로그인 상태를 확인해주세요.')
+  }
+  return currentSalonId
+}
+
 // Helper function to save appointment services
 const saveAppointmentServices = async (appointmentId: string, serviceIds: string[]) => {
   // Validate inputs
@@ -54,7 +72,7 @@ export const getAppointmentServices = async (appointmentIds: string[]) => {
     .from('appointment_services')
     .select(`
       appointment_id,
-      service:services(id, name, price, duration, description, active)
+      service:services(id, salon_id, name, price, duration, description, active)
     `)
     .in('appointment_id', appointmentIds)
 
@@ -75,6 +93,7 @@ export const getAppointments = async (): Promise<AppointmentWithRelations[]> => 
       customer:customers(id, name, phone, email),
       staff:staff(id, name, role)
     `)
+    .eq('salon_id', requireSalonId())
     .order('appointment_date', { ascending: true })
     .order('appointment_time', { ascending: true })
 
@@ -140,6 +159,7 @@ export const getAppointmentsByDateRange = async (
       customer:customers(id, name, phone, email),
       staff:staff(id, name, role)
     `)
+    .eq('salon_id', requireSalonId())
     .gte('appointment_date', startDate)
     .lte('appointment_date', endDate)
     .order('appointment_date', { ascending: true })
@@ -207,6 +227,7 @@ export const findDuplicateAppointment = async (params: {
       customer:customers(id, name, phone, email),
       staff:staff(id, name, role)
     `)
+    .eq('salon_id', requireSalonId())
     .eq('customer_id', params.customer_id)
     .eq('appointment_date', params.appointment_date)
     .eq('appointment_time', params.appointment_time)
@@ -256,7 +277,7 @@ export const findDuplicateAppointment = async (params: {
 
 // 예약 저장 (다중 서비스 지원 with fallback)
 export const saveAppointment = async (
-  appointmentData: Omit<Appointment, 'id' | 'created_at'> & { service_ids?: string[] }
+  appointmentData: Omit<Appointment, 'id' | 'created_at' | 'salon_id'> & { service_ids?: string[] }
 ): Promise<AppointmentWithRelations> => {
   const { service_ids, ...baseAppointmentData } = appointmentData
 
@@ -270,6 +291,7 @@ export const saveAppointment = async (
 
     const insertData = {
       ...baseAppointmentData,
+      salon_id: requireSalonId(),
       service_id: firstServiceId
     }
     console.log('📥 Inserting data:', insertData)
@@ -344,7 +366,7 @@ export const saveAppointment = async (
 // 예약 업데이트 (다중 서비스 지원)
 export const updateAppointment = async (
   id: string,
-  updates: Partial<Appointment> & { service_ids?: string[] }
+  updates: Partial<Omit<Appointment, 'salon_id'>> & { service_ids?: string[] }
 ): Promise<AppointmentWithRelations | null> => {
   const { service_ids, ...baseUpdates } = updates
 
@@ -369,6 +391,7 @@ export const updateAppointment = async (
     .from('appointments')
     .update(updateData)
     .eq('id', id)
+    .eq('salon_id', requireSalonId())
     .select(`
       *,
       customer:customers(id, name, phone, email),
@@ -408,6 +431,7 @@ export const deleteAppointment = async (id: string): Promise<boolean> => {
     .from('appointments')
     .delete()
     .eq('id', id)
+    .eq('salon_id', requireSalonId())
 
   if (error) {
     console.error('예약 삭제 실패:', error)
@@ -422,6 +446,7 @@ export const getCustomers = async (): Promise<Customer[]> => {
   const { data, error } = await supabase
     .from('customers')
     .select('*')
+    .eq('salon_id', requireSalonId())
     .order('name', { ascending: true })
 
   if (error) {
@@ -442,6 +467,7 @@ export const getCustomerHistory = async (customerId: string): Promise<Appointmen
       customer:customers(id, name, phone, email),
       staff:staff(id, name, role)
     `)
+    .eq('salon_id', requireSalonId())
     .eq('customer_id', customerId)
     // 일단 모든 상태의 예약을 조회 (완료된 것만이 아니라)
     .order('appointment_date', { ascending: false })
@@ -495,11 +521,11 @@ export const getCustomerHistory = async (customerId: string): Promise<Appointmen
 
 // 고객 저장
 export const saveCustomer = async (
-  customerData: Omit<Customer, 'id' | 'created_at'>
+  customerData: Omit<Customer, 'id' | 'created_at' | 'salon_id'>
 ): Promise<Customer> => {
   const { data, error } = await supabase
     .from('customers')
-    .insert([customerData])
+    .insert([{ ...customerData, salon_id: requireSalonId() }])
     .select()
     .single()
 
@@ -523,12 +549,13 @@ export const saveCustomer = async (
 // 고객 정보 업데이트
 export const updateCustomer = async (
   id: string,
-  updates: Partial<Omit<Customer, 'id' | 'created_at'>>
+  updates: Partial<Omit<Customer, 'id' | 'created_at' | 'salon_id'>>
 ): Promise<Customer> => {
   const { data, error } = await supabase
     .from('customers')
     .update(updates)
     .eq('id', id)
+    .eq('salon_id', requireSalonId())
     .select()
     .single()
 
@@ -545,6 +572,7 @@ export const getStaff = async (): Promise<Staff[]> => {
   const { data, error } = await supabase
     .from('staff')
     .select('*')
+    .eq('salon_id', requireSalonId())
     .order('name', { ascending: true })
 
   if (error) {
@@ -560,6 +588,7 @@ export const getActiveStaff = async (): Promise<Staff[]> => {
   const { data, error } = await supabase
     .from('staff')
     .select('*')
+    .eq('salon_id', requireSalonId())
     .eq('active', true)
     .order('name', { ascending: true })
 
@@ -576,6 +605,7 @@ export const getServices = async (): Promise<Service[]> => {
   const { data, error } = await supabase
     .from('services')
     .select('*')
+    .eq('salon_id', requireSalonId())
     .order('name', { ascending: true })
 
   if (error) {
@@ -591,6 +621,7 @@ export const getActiveServices = async (): Promise<Service[]> => {
   const { data, error } = await supabase
     .from('services')
     .select('*')
+    .eq('salon_id', requireSalonId())
     .eq('active', true)
     .order('name', { ascending: true })
 
@@ -604,11 +635,11 @@ export const getActiveServices = async (): Promise<Service[]> => {
 
 // 서비스 저장
 export const saveService = async (
-  serviceData: Omit<Service, 'id' | 'created_at'>
+  serviceData: Omit<Service, 'id' | 'created_at' | 'salon_id'>
 ): Promise<Service> => {
   const { data, error } = await supabase
     .from('services')
-    .insert([serviceData])
+    .insert([{ ...serviceData, salon_id: requireSalonId() }])
     .select()
     .single()
 
@@ -623,12 +654,13 @@ export const saveService = async (
 // 서비스 정보 업데이트
 export const updateService = async (
   id: string,
-  updates: Partial<Omit<Service, 'id' | 'created_at'>>
+  updates: Partial<Omit<Service, 'id' | 'created_at' | 'salon_id'>>
 ): Promise<Service> => {
   const { data, error } = await supabase
     .from('services')
     .update(updates)
     .eq('id', id)
+    .eq('salon_id', requireSalonId())
     .select()
     .single()
 
@@ -642,11 +674,11 @@ export const updateService = async (
 
 // 직원 저장
 export const saveStaff = async (
-  staffData: Omit<Staff, 'id' | 'created_at'>
+  staffData: Omit<Staff, 'id' | 'created_at' | 'salon_id'>
 ): Promise<Staff> => {
   const { data, error } = await supabase
     .from('staff')
-    .insert([staffData])
+    .insert([{ ...staffData, salon_id: requireSalonId() }])
     .select()
     .single()
 
@@ -661,12 +693,13 @@ export const saveStaff = async (
 // 직원 정보 업데이트
 export const updateStaff = async (
   id: string,
-  updates: Partial<Omit<Staff, 'id' | 'created_at'>>
+  updates: Partial<Omit<Staff, 'id' | 'created_at' | 'salon_id'>>
 ): Promise<Staff> => {
   const { data, error } = await supabase
     .from('staff')
     .update(updates)
     .eq('id', id)
+    .eq('salon_id', requireSalonId())
     .select()
     .single()
 
@@ -684,6 +717,7 @@ export const deleteService = async (id: string): Promise<boolean> => {
     .from('services')
     .delete()
     .eq('id', id)
+    .eq('salon_id', requireSalonId())
 
   if (error) {
     console.error('서비스 삭제 실패:', error)
@@ -699,6 +733,7 @@ export const deleteStaff = async (id: string): Promise<boolean> => {
     .from('staff')
     .delete()
     .eq('id', id)
+    .eq('salon_id', requireSalonId())
 
   if (error) {
     console.error('직원 삭제 실패:', error)
@@ -714,6 +749,7 @@ export const deleteCustomer = async (id: string): Promise<boolean> => {
     .from('customers')
     .delete()
     .eq('id', id)
+    .eq('salon_id', requireSalonId())
 
   if (error) {
     console.error('고객 삭제 실패:', error)

@@ -34,6 +34,7 @@ export const supabaseClient = createClient(
 export interface UserProfile {
   id: string
   user_id: string
+  salon_id: string
   name: string
   role: 'admin' | 'staff'
   phone?: string
@@ -45,6 +46,7 @@ export interface UserProfile {
 export interface AuthUser {
   id: string
   email: string
+  salon_id: string
   name: string
   role: 'admin' | 'staff'
   phone?: string
