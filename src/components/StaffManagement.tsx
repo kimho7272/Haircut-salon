@@ -29,6 +29,7 @@ export default function StaffManagement() {
   const [inviteError, setInviteError] = useState('')
   const [inviteSuccess, setInviteSuccess] = useState(false)
   const [upgradeLoading, setUpgradeLoading] = useState(false)
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null)
 
   const seatLimitReached = salon?.plan === 'free' && members.length >= 1
 
@@ -86,6 +87,39 @@ export default function StaffManagement() {
       setInviteError(t('invite_error_generic'))
     } finally {
       setInviteLoading(false)
+    }
+  }
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!confirm(t('remove_account_confirm_question'))) return
+
+    setRemovingUserId(userId)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const response = await fetch('/api/staff-remove', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ userId })
+      })
+      const result = await response.json()
+
+      if (!response.ok) {
+        if (result.error === 'cannot_remove_owner') {
+          alert(t('remove_account_cannot_remove_owner'))
+        } else {
+          alert(t('remove_account_failed'))
+        }
+        return
+      }
+
+      await fetchMembers()
+    } catch (error) {
+      alert(t('remove_account_failed'))
+    } finally {
+      setRemovingUserId(null)
     }
   }
 
@@ -295,6 +329,41 @@ export default function StaffManagement() {
             <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">
               {t('seat_limit_reached_title')} — {t('seat_limit_upgrade_prompt')}
             </p>
+          )}
+
+          {members.length > 0 && (
+            <div className="mt-3 divide-y divide-gray-100 border-t border-gray-100">
+              {members.map(member => {
+                const isOwner = salon?.owner_user_id === member.user_id
+                return (
+                  <div key={member.id} className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">{member.name}</span>
+                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                        member.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {member.role === 'admin' ? t('admin_role') : t('staff_role')}
+                      </span>
+                      {isOwner && (
+                        <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
+                          {t('owner_badge')}
+                        </span>
+                      )}
+                    </div>
+                    {!isOwner && (
+                      <button
+                        onClick={() => handleRemoveMember(member.user_id)}
+                        disabled={removingUserId === member.user_id}
+                        className="text-red-600 hover:text-red-800 disabled:opacity-50 text-xs flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        {removingUserId === member.user_id ? t('removing') : t('remove_account')}
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
       </div>

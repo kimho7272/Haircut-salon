@@ -44,6 +44,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'seat_limit_reached' }, { status: 402 })
   }
 
+  // 이메일 중복 여부를 먼저 확인 (inviteUserByEmail의 에러 메시지만으로는
+  // "이미 존재하는 이메일"과 "메일 발송 실패(레이트리밋 등)"를 구분할 수 없어서,
+  // 발송을 시도하기 전에 미리 걸러낸다 — supabase-js admin API에 email 단건 조회가
+  // 없어서 목록을 받아 직접 대조함)
+  const { data: existingUsersPage } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+  const alreadyExists = existingUsersPage?.users.some(
+    u => u.email?.toLowerCase() === email.toLowerCase()
+  )
+  if (alreadyExists) {
+    return NextResponse.json({ error: 'email_taken' }, { status: 409 })
+  }
+
   const { data: invited, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email)
 
   if (inviteError || !invited.user) {

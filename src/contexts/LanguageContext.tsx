@@ -85,6 +85,12 @@ const translations = {
     'billing_not_configured': '결제 연동을 준비 중입니다. 잠시 후 다시 시도해주세요.',
     'invite_error_email_taken': '이미 사용 중인 이메일입니다.',
     'invite_error_generic': '초대에 실패했습니다. 잠시 후 다시 시도해주세요.',
+    'remove_account': '계정 제거',
+    'remove_account_confirm_question': '이 계정을 완전히 제거하시겠습니까? 이메일이 다른 미용실에서 다시 사용 가능해집니다.',
+    'remove_account_cannot_remove_owner': '미용실 소유자 계정은 제거할 수 없습니다.',
+    'remove_account_failed': '계정 제거에 실패했습니다.',
+    'removing': '제거 중...',
+    'owner_badge': '소유자',
 
     // 운영자 콘솔 (/admin)
     'admin_console_title': 'RyanSuite 운영자 콘솔',
@@ -449,6 +455,12 @@ const translations = {
     'billing_not_configured': "Billing isn't set up yet. Please try again later.",
     'invite_error_email_taken': 'This email is already in use.',
     'invite_error_generic': 'Failed to send invite. Please try again shortly.',
+    'remove_account': 'Remove account',
+    'remove_account_confirm_question': 'Permanently remove this account? The email will become available at other salons again.',
+    'remove_account_cannot_remove_owner': "The salon owner's account can't be removed.",
+    'remove_account_failed': 'Failed to remove the account.',
+    'removing': 'Removing...',
+    'owner_badge': 'Owner',
 
     // Operator console (/admin)
     'admin_console_title': 'RyanSuite Operator Console',
