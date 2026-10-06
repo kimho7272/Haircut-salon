@@ -164,6 +164,14 @@ const translations = {
     'admin_status_label': '상태',
     'admin_created_label': '가입일',
     'admin_loading': '불러오는 중...',
+    'admin_danger_zone': '위험 구역',
+    'admin_delete_salon': '미용실 삭제',
+    'admin_delete_salon_warning': '이 작업은 되돌릴 수 없습니다. 이 미용실의 모든 고객, 예약, 서비스, 직원 계정이 영구적으로 삭제됩니다.',
+    'admin_delete_salon_confirm_prompt': '확인을 위해 아래에 미용실 슬러그를 입력하세요',
+    'admin_delete_salon_button': '영구 삭제',
+    'admin_deleting': '삭제 중...',
+    'admin_delete_salon_failed': '삭제에 실패했습니다.',
+    'admin_activity_action_salon_deleted': '미용실 삭제',
 
     // 사이드바
     'salon_name': process.env.NEXT_PUBLIC_SALON_NAME || '미용실',
@@ -592,6 +600,14 @@ const translations = {
     'admin_status_label': 'Status',
     'admin_created_label': 'Created',
     'admin_loading': 'Loading...',
+    'admin_danger_zone': 'Danger Zone',
+    'admin_delete_salon': 'Delete salon',
+    'admin_delete_salon_warning': 'This cannot be undone. All customers, appointments, services, and staff accounts for this salon will be permanently deleted.',
+    'admin_delete_salon_confirm_prompt': 'Type the salon slug below to confirm',
+    'admin_delete_salon_button': 'Permanently delete',
+    'admin_deleting': 'Deleting...',
+    'admin_delete_salon_failed': 'Failed to delete.',
+    'admin_activity_action_salon_deleted': 'Salon deleted',
 
     // 사이드바
     'salon_name': process.env.NEXT_PUBLIC_SALON_NAME || 'Salon',

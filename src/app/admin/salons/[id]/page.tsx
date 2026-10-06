@@ -2,7 +2,8 @@
 
 import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Users2, ShoppingBag, Clock, Save } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowLeft, Users2, ShoppingBag, Clock, Save, AlertTriangle, Trash2 } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useAdminSession } from '../../AdminSessionContext'
 
@@ -29,6 +30,7 @@ export default function AdminSalonDetailPage({ params }: { params: Promise<{ id:
   const { id } = use(params)
   const { t } = useLanguage()
   const { session } = useAdminSession()
+  const router = useRouter()
 
   const [salon, setSalon] = useState<SalonDetail | null>(null)
   const [members, setMembers] = useState<Member[]>([])
@@ -38,6 +40,9 @@ export default function AdminSalonDetailPage({ params }: { params: Promise<{ id:
   const [savingNotes, setSavingNotes] = useState(false)
   const [notesSaved, setNotesSaved] = useState(false)
   const [savingField, setSavingField] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const fetchDetail = async () => {
     const response = await fetch(`/api/admin/salons/${id}`, {
@@ -85,6 +90,22 @@ export default function AdminSalonDetailPage({ params }: { params: Promise<{ id:
       alert(t('admin_update_failed'))
     }
     setSavingNotes(false)
+  }
+
+  const handleDelete = async () => {
+    if (!salon || deleteConfirmText !== salon.slug) return
+    setDeleting(true)
+    const response = await fetch(`/api/admin/salons/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ confirmSlug: deleteConfirmText })
+    })
+    if (response.ok) {
+      router.push('/admin/salons')
+    } else {
+      alert(t('admin_delete_salon_failed'))
+      setDeleting(false)
+    }
   }
 
   if (loading) {
@@ -206,6 +227,73 @@ export default function AdminSalonDetailPage({ params }: { params: Promise<{ id:
       >
         {t('admin_nav_activity')} →
       </Link>
+
+      <div className="bg-white rounded-lg border border-red-200 shadow-sm p-5 space-y-3">
+        <h2 className="font-bold text-red-700 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4" />
+          {t('admin_danger_zone')}
+        </h2>
+        <p className="text-sm text-gray-600">{t('admin_delete_salon_warning')}</p>
+        <button
+          onClick={() => { setDeleteConfirmText(''); setShowDeleteModal(true) }}
+          className="flex items-center gap-1.5 px-4 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          {t('admin_delete_salon')}
+        </button>
+      </div>
+
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 z-70 overflow-y-auto flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'none' }}
+        >
+          <div className="bg-white rounded-lg shadow-xl border-2 border-red-400 max-w-md w-full">
+            <div className="flex items-center justify-between py-2 px-4 border-b border-red-200 bg-red-50">
+              <h2 className="text-lg font-bold text-red-800 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                {t('admin_delete_salon')}
+              </h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-700">{t('admin_delete_salon_warning')}</p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                {salon.name} — {usage?.customerCount ?? 0} {t('admin_col_customers')}, {members.length} {t('admin_salon_members')}
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">
+                  {t('admin_delete_salon_confirm_prompt')}: <span className="font-mono font-bold">{salon.slug}</span>
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-500"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 p-6 pt-0">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="flex-1 px-4 py-3 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting || deleteConfirmText !== salon.slug}
+                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? t('admin_deleting') : t('admin_delete_salon_button')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

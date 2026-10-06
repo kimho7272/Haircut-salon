@@ -19,6 +19,7 @@ type AuditEvent = {
 
 const ACTION_KEY: Record<string, string> = {
   salon_created: 'admin_activity_action_salon_created',
+  salon_deleted: 'admin_activity_action_salon_deleted',
   plan_changed: 'admin_activity_action_plan_changed',
   status_changed: 'admin_activity_action_status_changed',
   notes_updated: 'admin_activity_action_notes_updated',
@@ -38,6 +39,9 @@ function describeDetail(action: string, detail: Record<string, unknown> | null):
   }
   if (action === 'operator_added' || action === 'operator_removed') {
     return String(detail.email ?? '')
+  }
+  if (action === 'salon_deleted') {
+    return `${detail.name ?? ''} (${detail.customerCount ?? 0}명 고객, ${detail.appointmentCount ?? 0}건 예약)`
   }
   // salon_created는 actorEmail(= 가입한 오너)과 ownerEmail이 항상 같으므로 중복 표시 안 함
   return ''

@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 
 export type AuditAction =
   | 'salon_created'
+  | 'salon_deleted'
   | 'plan_changed'
   | 'status_changed'
   | 'notes_updated'
