@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
 // 직원은 미용실별 slug 경로(/illy-hair)에서 "실제" 이메일로 로그인한다.
@@ -44,7 +45,17 @@ export async function POST(request: NextRequest) {
     return invalidCredentials()
   }
 
-  const { data: session, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+  // signInWithPassword는 supabaseAdmin(모듈 싱글턴, 여러 요청이 재사용됨)이 아니라
+  // 이 요청 전용 임시 클라이언트로 수행한다 — 같은 서버리스 인스턴스가 연속된 다른
+  // 사용자의 로그인 요청을 처리할 때 세션 상태가 서로 섞이는 걸 방지하기 위함
+  // (persistSession: false라 어차피 저장은 안 하지만, 메모리 내 세션 상태 공유 자체를 차단)
+  const requestScopedClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  )
+
+  const { data: session, error: signInError } = await requestScopedClient.auth.signInWithPassword({
     email: authUser.user.email,
     password,
   })
