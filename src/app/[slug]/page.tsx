@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Lock, User, Eye, EyeOff, Scissors, Sparkles } from 'lucide-react'
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext'
+import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import LanguageSelector from '@/components/LanguageSelector'
+import AppShell from '@/components/AppShell'
 import { supabase } from '@/lib/supabase'
 
 function SalonLoginForm({ slug }: { slug: string }) {
   const { t } = useLanguage()
-  const router = useRouter()
 
   const [salonName, setSalonName] = useState<string | null>(null)
   const [formData, setFormData] = useState({ email: '', password: '' })
@@ -49,6 +50,9 @@ function SalonLoginForm({ slug }: { slug: string }) {
         return
       }
 
+      // setSession이 onAuthStateChange(SIGNED_IN)을 발생시켜 AuthContext가 알아서
+      // 프로필/살롱을 불러오고, 이 페이지는 그 상태를 보고 AppShell로 전환됨
+      // (별도로 router.push 할 필요 없음)
       const { error: setSessionError } = await supabase.auth.setSession({
         access_token: result.access_token,
         refresh_token: result.refresh_token
@@ -57,10 +61,7 @@ function SalonLoginForm({ slug }: { slug: string }) {
       if (setSessionError) {
         setError(t('login_error_failed'))
         setLoading(false)
-        return
       }
-
-      router.push('/')
     } catch (err) {
       setError(t('login_error_failed'))
       setLoading(false)
@@ -155,13 +156,41 @@ function SalonLoginForm({ slug }: { slug: string }) {
   )
 }
 
+function SalonGate({ slug }: { slug: string }) {
+  const { user, salon, isLoading } = useAuth()
+  const router = useRouter()
+
+  // 로그인은 했는데 URL의 slug가 자기 미용실 slug와 다르면 맞는 주소로 보내줌
+  useEffect(() => {
+    if (!isLoading && user && salon && salon.slug !== slug) {
+      router.replace(`/${salon.slug}`)
+    }
+  }, [isLoading, user, salon, slug, router])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      </div>
+    )
+  }
+
+  if (user && salon) {
+    return <AppShell />
+  }
+
+  return <SalonLoginForm slug={slug} />
+}
+
 export default function SalonLoginPage() {
   const params = useParams()
   const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug
 
   return (
-    <LanguageProvider>
-      <SalonLoginForm slug={slug || ''} />
-    </LanguageProvider>
+    <AuthProvider>
+      <LanguageProvider>
+        <SalonGate slug={slug || ''} />
+      </LanguageProvider>
+    </AuthProvider>
   )
 }

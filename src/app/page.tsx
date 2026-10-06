@@ -1,41 +1,40 @@
 'use client'
 
-import { useState } from 'react'
-import Sidebar from '@/components/Sidebar'
-import SchedulePage from '@/components/SchedulePage'
-import CustomerManagement from '@/components/CustomerManagement'
-import ServiceManagement from '@/components/ServiceManagement'
-import StaffManagement from '@/components/StaffManagement'
-import RevenueManagement from '@/components/RevenueManagement'
-import ProtectedRoute from '@/components/ProtectedRoute'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import LoginForm from '@/components/LoginForm'
 import { LanguageProvider } from '@/contexts/LanguageContext'
-import { AuthProvider } from '@/contexts/AuthContext'
+import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 
-export default function MainPage() {
-  const [currentPage, setCurrentPage] = useState<'schedule' | 'customers' | 'services' | 'staff' | 'revenue'>('schedule')
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+// 루트 도메인은 "로그인 창"일 뿐이다. 관리자가 처음 미용실을 만드는 가입 과정
+// 때문에만 루트에서의 로그인을 허용하고, 로그인에 성공하면 곧바로 자기 미용실의
+// 경로(/<slug>)로 보낸다 — 앱 자체는 거기서만 렌더링됨 (AppShell 참고).
+function RootGate() {
+  const { user, salon, isLoading } = useAuth()
+  const router = useRouter()
 
+  useEffect(() => {
+    if (!isLoading && user && salon) {
+      router.replace(`/${salon.slug}`)
+    }
+  }, [isLoading, user, salon, router])
+
+  if (isLoading || (user && salon)) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      </div>
+    )
+  }
+
+  return <LoginForm />
+}
+
+export default function RootPage() {
   return (
     <AuthProvider>
       <LanguageProvider>
-        <ProtectedRoute>
-          <div className="bg-gray-50">
-            <Sidebar
-              currentPage={currentPage}
-              onPageChange={setCurrentPage}
-              isCollapsed={sidebarCollapsed}
-              onToggleCollapse={setSidebarCollapsed}
-            />
-
-            <div className={`transition-all duration-300 ${sidebarCollapsed ? 'ml-16' : 'ml-52'}`}>
-              {currentPage === 'schedule' && <SchedulePage />}
-              {currentPage === 'customers' && <CustomerManagement />}
-              {currentPage === 'services' && <ServiceManagement />}
-              {currentPage === 'staff' && <StaffManagement />}
-              {currentPage === 'revenue' && <RevenueManagement />}
-            </div>
-          </div>
-        </ProtectedRoute>
+        <RootGate />
       </LanguageProvider>
     </AuthProvider>
   )
