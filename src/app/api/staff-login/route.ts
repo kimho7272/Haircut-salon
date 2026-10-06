@@ -64,8 +64,9 @@ export async function POST(request: NextRequest) {
     return invalidCredentials()
   }
 
-  return NextResponse.json({
-    access_token: session.session.access_token,
-    refresh_token: session.session.refresh_token,
-  })
+  // 클라이언트에 세션 전체를 그대로 돌려준다 (supabase-js가 sessionStorage에 쓰는
+  // 형태와 동일한 모양 — access_token/token_type/expires_in/expires_at/
+  // refresh_token/user). 클라이언트는 이걸 auth.setSession()으로 "설정"하지 않고
+  // storage에 직접 써넣는다 — 자세한 이유는 [slug]/page.tsx 주석 참고.
+  return NextResponse.json(session.session)
 }

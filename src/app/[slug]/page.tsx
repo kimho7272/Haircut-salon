@@ -7,7 +7,6 @@ import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import LanguageSelector from '@/components/LanguageSelector'
 import AppShell from '@/components/AppShell'
-import { supabase } from '@/lib/supabase'
 
 function SalonLoginForm({ slug }: { slug: string }) {
   const { t } = useLanguage()
@@ -50,20 +49,13 @@ function SalonLoginForm({ slug }: { slug: string }) {
         return
       }
 
-      const { error: setSessionError } = await supabase.auth.setSession({
-        access_token: result.access_token,
-        refresh_token: result.refresh_token
-      })
-
-      if (setSessionError) {
-        setError(t('login_error_failed'))
-        setLoading(false)
-        return
-      }
-
-      // setSession이 onAuthStateChange를 안정적으로 쏴주지 않을 때가 있어서
-      // (루트 로그인의 signInWithPassword 경로와 다름), AuthContext가 세션을
-      // 처음부터 다시 읽도록 완전히 새로고침한다 — 루트 로그인과 동일하게 동작 보장
+      // auth.setSession()을 쓰지 않는다 — 같은 탭에서 연속으로 Supabase 인증 동작을
+      // 호출하면(세션 확인 → setSession → 새로고침) supabase-js 내부 락이 걸린 채로
+      // 안 풀리는 경우가 실제로 있었음 (새로고침 후에도 멈춰있는 걸 확인). 대신
+      // supabase-js가 평소에 쓰는 것과 똑같은 모양으로 세션을 storage에 직접 써넣고
+      // 새로고침하면, 새 페이지는 "그냥 로그인된 상태로 처음 열린" 것과 동일하게
+      // 동작해서 락 문제 자체가 생기지 않는다.
+      sessionStorage.setItem('haircut-auth', JSON.stringify(result))
       window.location.reload()
     } catch (err) {
       setError(t('login_error_failed'))
