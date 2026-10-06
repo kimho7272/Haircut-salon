@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { logAdminEvent } from '@/lib/adminAudit'
 
 // 이 경로들은 /[slug] 동적 라우트와 겹치면 안 되는 예약어
 const RESERVED_SLUGS = new Set(['admin', 'signup', 'api', 'login', 'www'])
@@ -73,6 +74,14 @@ export async function POST(request: NextRequest) {
     await supabaseAdmin.auth.admin.deleteUser(userId)
     return NextResponse.json({ error: 'signup_failed', detail: profileError.message }, { status: 500 })
   }
+
+  await logAdminEvent({
+    actorUserId: userId,
+    actorType: 'system',
+    action: 'salon_created',
+    targetSalonId: salon.id,
+    detail: { salonName, slug, ownerEmail: email },
+  })
 
   return NextResponse.json({ success: true, salonId: salon.id, userId })
 }

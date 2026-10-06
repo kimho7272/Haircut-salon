@@ -23,3 +23,17 @@ export const getCallerUser = async (authHeader: string | null) => {
   if (error || !data.user) return null
   return data.user
 }
+
+// 운영자 콘솔 API 공통 가드 — 호출자가 platform_admins에 등록된 사람인지 확인
+export const requirePlatformAdmin = async (authHeader: string | null) => {
+  const caller = await getCallerUser(authHeader)
+  if (!caller) return null
+
+  const { data } = await supabaseAdmin
+    .from('platform_admins')
+    .select('user_id')
+    .eq('user_id', caller.id)
+    .maybeSingle()
+
+  return data ? caller : null
+}

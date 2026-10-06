@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID, randomBytes } from 'crypto'
 import { supabaseAdmin, getCallerUser } from '@/lib/supabase-admin'
 import { sendInviteEmail } from '@/lib/resend'
+import { logAdminEvent } from '@/lib/adminAudit'
 
 export async function POST(request: NextRequest) {
   const caller = await getCallerUser(request.headers.get('authorization'))
@@ -96,6 +97,14 @@ export async function POST(request: NextRequest) {
   if (linkError || !linkData.properties?.action_link) {
     return NextResponse.json({ error: 'invite_failed', detail: linkError?.message }, { status: 500 })
   }
+
+  await logAdminEvent({
+    actorUserId: caller.id,
+    actorType: 'system',
+    action: 'staff_invited',
+    targetSalonId: salonId,
+    detail: { name, email },
+  })
 
   const sendResult = await sendInviteEmail({
     to: email,

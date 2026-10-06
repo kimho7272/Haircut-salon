@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin, getCallerUser } from '@/lib/supabase-admin'
+import { logAdminEvent } from '@/lib/adminAudit'
 
 export async function POST(request: NextRequest) {
   const caller = await getCallerUser(request.headers.get('authorization'))
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
   // 대상 계정이 내 미용실 소속인지 확인 (다른 미용실 계정은 건드릴 수 없음)
   const { data: targetProfile } = await supabaseAdmin
     .from('user_profiles')
-    .select('user_id, salon_id')
+    .select('user_id, salon_id, name, contact_email')
     .eq('user_id', targetUserId)
     .single()
 
@@ -55,6 +56,14 @@ export async function POST(request: NextRequest) {
   if (deleteError) {
     return NextResponse.json({ error: 'remove_failed', detail: deleteError.message }, { status: 500 })
   }
+
+  await logAdminEvent({
+    actorUserId: caller.id,
+    actorType: 'system',
+    action: 'staff_removed',
+    targetSalonId: callerProfile.salon_id,
+    detail: { name: targetProfile.name, email: targetProfile.contact_email },
+  })
 
   return NextResponse.json({ success: true })
 }
