@@ -24,6 +24,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // 세션 관리를 위한 타이머 참조
   const keepAliveInterval = React.useRef<NodeJS.Timeout | undefined>(undefined)
 
+  // loadUserProfile이 동시에 두 군데(초기 세션 체크 + onAuthStateChange 리스너)에서
+  // 같은 세션에 대해 중복 실행되면 supabase-js 내부 상태가 꼬여서 이후의 모든 요청이
+  // 영원히 멈춰버리는 문제가 실제로 있었음 (이미 세션이 있는 상태로 페이지가 열릴 때
+  // 재현됨 — 둘 다 거의 동시에 트리거됨). 같은 user에 대해서는 한 번만 실행되게 막는다.
+  const loadingProfileForUserId = React.useRef<string | null>(null)
+
   useEffect(() => {
     // 초기 세션 확인
     const initializeAuth = async () => {
@@ -88,6 +94,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user])
 
   const loadUserProfile = async (authUser: User) => {
+    if (loadingProfileForUserId.current === authUser.id) {
+      // 이미 같은 사용자에 대한 로딩이 진행 중 — 중복 호출은 조용히 무시
+      return
+    }
+    loadingProfileForUserId.current = authUser.id
+
     try {
       const profile = await getUserProfile(authUser.id)
 
@@ -113,6 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error loading user profile:', error)
       setCurrentSalonId(null)
       await supabaseClient.auth.signOut()
+    } finally {
+      loadingProfileForUserId.current = null
     }
   }
 
