@@ -79,6 +79,8 @@ const translations = {
     'invite_submit': '초대 보내기',
     'invite_sending': '보내는 중...',
     'invite_success': '초대 메일을 보냈습니다.',
+    'invite_login_url_hint': '직원은 이 주소로 로그인합니다',
+    'invite_email_not_sent': '계정은 만들어졌지만 초대 메일 발송에는 실패했습니다. 아래 링크를 직접 전달해주세요.',
     'seat_limit_reached_title': '무료 플랜은 관리자 1명까지만 가능합니다',
     'seat_limit_upgrade_prompt': '직원 계정을 추가하려면 유료 플랜으로 전환해주세요.',
     'upgrade_button': '업그레이드',
@@ -91,6 +93,16 @@ const translations = {
     'remove_account_failed': '계정 제거에 실패했습니다.',
     'removing': '제거 중...',
     'owner_badge': '소유자',
+
+    // 비밀번호 설정 (/set-password)
+    'set_password_title': '비밀번호 설정',
+    'set_password_prompt': '계정에서 사용할 비밀번호를 설정해주세요.',
+    'new_password': '새 비밀번호',
+    'set_password_submit': '설정 완료',
+    'set_password_submitting': '설정 중...',
+    'set_password_success': '비밀번호가 설정되었습니다. 이동 중...',
+    'set_password_error': '링크가 만료되었거나 유효하지 않습니다.',
+    'set_password_too_short': '비밀번호는 6자 이상이어야 합니다.',
 
     // 운영자 콘솔 (/admin)
     'admin_console_title': 'RyanSuite 운영자 콘솔',
@@ -449,6 +461,8 @@ const translations = {
     'invite_submit': 'Send invite',
     'invite_sending': 'Sending...',
     'invite_success': 'Invite email sent.',
+    'invite_login_url_hint': 'Staff log in at this address',
+    'invite_email_not_sent': 'The account was created, but the invite email failed to send. Please share this link directly.',
     'seat_limit_reached_title': 'The free plan allows only 1 admin account',
     'seat_limit_upgrade_prompt': 'Upgrade to a paid plan to add staff accounts.',
     'upgrade_button': 'Upgrade',
@@ -461,6 +475,16 @@ const translations = {
     'remove_account_failed': 'Failed to remove the account.',
     'removing': 'Removing...',
     'owner_badge': 'Owner',
+
+    // Set password (/set-password)
+    'set_password_title': 'Set your password',
+    'set_password_prompt': 'Choose a password for your account.',
+    'new_password': 'New password',
+    'set_password_submit': 'Set password',
+    'set_password_submitting': 'Setting...',
+    'set_password_success': 'Password set. Redirecting...',
+    'set_password_error': 'This link has expired or is invalid.',
+    'set_password_too_short': 'Password must be at least 6 characters.',
 
     // Operator console (/admin)
     'admin_console_title': 'RyanSuite Operator Console',

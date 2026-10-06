@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
+// 이 경로들은 /[slug] 동적 라우트와 겹치면 안 되는 예약어
+const RESERVED_SLUGS = new Set(['admin', 'signup', 'api', 'login', 'www'])
+
 const makeSlug = (name: string) => {
   const base = name
     .toLowerCase()
@@ -21,7 +24,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_input' }, { status: 400 })
   }
 
-  // slug 중복 방지 (같은 이름이면 뒤에 짧은 접미사를 붙임)
+  // slug 중복/예약어 방지 (같은 이름이면 뒤에 짧은 접미사를 붙임)
   const baseSlug = makeSlug(salonName)
   let slug = baseSlug
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -30,7 +33,7 @@ export async function POST(request: NextRequest) {
       .select('id')
       .eq('slug', slug)
       .maybeSingle()
-    if (!existing) break
+    if (!existing && !RESERVED_SLUGS.has(slug)) break
     slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`
   }
 
@@ -63,7 +66,7 @@ export async function POST(request: NextRequest) {
 
   const { error: profileError } = await supabaseAdmin
     .from('user_profiles')
-    .insert([{ user_id: userId, salon_id: salon.id, name: adminName, role: 'admin' }])
+    .insert([{ user_id: userId, salon_id: salon.id, name: adminName, role: 'admin', contact_email: email }])
 
   if (profileError) {
     await supabaseAdmin.from('salons').delete().eq('id', salon.id)

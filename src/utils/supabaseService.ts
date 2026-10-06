@@ -458,10 +458,10 @@ export const getSalon = async (): Promise<Salon | null> => {
 }
 
 // 같은 미용실의 로그인 계정(user_profiles) 목록 조회 — 좌석 수 계산용
-export const getSalonMembers = async (): Promise<{ id: string; name: string; role: 'admin' | 'staff'; user_id: string }[]> => {
+export const getSalonMembers = async (): Promise<{ id: string; name: string; role: 'admin' | 'staff'; user_id: string; contact_email: string }[]> => {
   const { data, error } = await supabase
     .from('user_profiles')
-    .select('id, name, role, user_id')
+    .select('id, name, role, user_id, contact_email')
     .eq('salon_id', requireSalonId())
     .order('created_at', { ascending: true })
 

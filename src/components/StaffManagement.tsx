@@ -22,12 +22,13 @@ export default function StaffManagement() {
   const [searchTerm, setSearchTerm] = useState('')
 
   // 로그인 계정(좌석) 관련 상태
-  const [members, setMembers] = useState<{ id: string; name: string; role: 'admin' | 'staff'; user_id: string }[]>([])
+  const [members, setMembers] = useState<{ id: string; name: string; role: 'admin' | 'staff'; user_id: string; contact_email: string }[]>([])
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [inviteForm, setInviteForm] = useState({ name: '', email: '' })
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteError, setInviteError] = useState('')
   const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [inviteLinkFallback, setInviteLinkFallback] = useState<string | null>(null)
   const [upgradeLoading, setUpgradeLoading] = useState(false)
   const [removingUserId, setRemovingUserId] = useState<string | null>(null)
 
@@ -50,6 +51,7 @@ export default function StaffManagement() {
     setInviteForm({ name: '', email: '' })
     setInviteError('')
     setInviteSuccess(false)
+    setInviteLinkFallback(null)
     setShowInviteModal(true)
   }
 
@@ -69,6 +71,14 @@ export default function StaffManagement() {
         body: JSON.stringify(inviteForm)
       })
       const result = await response.json()
+
+      if (result.error === 'email_not_sent') {
+        // 계정은 만들어졌지만 메일 발송만 실패한 경우 — 링크를 직접 전달할 수 있게 보여줌
+        setInviteLinkFallback(result.inviteLink || null)
+        setInviteSuccess(true)
+        await fetchMembers()
+        return
+      }
 
       if (!response.ok) {
         if (result.error === 'seat_limit_reached') {
@@ -339,6 +349,7 @@ export default function StaffManagement() {
                   <div key={member.id} className="flex items-center justify-between py-2">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-900">{member.name}</span>
+                      <span className="text-xs text-gray-500">{member.contact_email}</span>
                       <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
                         member.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
                       }`}>
@@ -637,6 +648,17 @@ export default function StaffManagement() {
                 <p className="text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-3">
                   {t('invite_success')}
                 </p>
+                {salon?.slug && (
+                  <p className="text-xs text-gray-500">
+                    {t('invite_login_url_hint')}: <span className="font-mono">salon.ryansuite.com/{salon.slug}</span>
+                  </p>
+                )}
+                {inviteLinkFallback && (
+                  <div className="text-left bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <p className="text-xs text-amber-700 mb-1">{t('invite_email_not_sent')}</p>
+                    <p className="text-xs break-all font-mono text-gray-700">{inviteLinkFallback}</p>
+                  </div>
+                )}
                 <button
                   onClick={() => setShowInviteModal(false)}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"

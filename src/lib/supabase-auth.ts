@@ -12,6 +12,7 @@ export interface UserProfile {
   name: string
   role: 'admin' | 'staff'
   phone?: string
+  contact_email: string
   created_at: string
   updated_at: string
 }
