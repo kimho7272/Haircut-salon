@@ -38,9 +38,7 @@ function describeDetail(action: string, detail: Record<string, unknown> | null):
   if (action === 'operator_added' || action === 'operator_removed') {
     return String(detail.email ?? '')
   }
-  if (action === 'salon_created') {
-    return String(detail.ownerEmail ?? '')
-  }
+  // salon_created는 actorEmail(= 가입한 오너)과 ownerEmail이 항상 같으므로 중복 표시 안 함
   return ''
 }
 
