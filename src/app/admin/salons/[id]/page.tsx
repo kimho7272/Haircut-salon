@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, use } from 'react'
+import Link from 'next/link'
 import { ArrowLeft, Users2, ShoppingBag, Clock, Save } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useAdminSession } from '../../AdminSessionContext'
@@ -97,9 +98,9 @@ export default function AdminSalonDetailPage({ params }: { params: Promise<{ id:
   return (
     <div className="p-6 space-y-6 max-w-4xl">
       <div>
-        <a href="/admin/salons" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-2">
+        <Link href="/admin/salons" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-2">
           <ArrowLeft className="w-3.5 h-3.5" /> {t('admin_back_to_list')}
-        </a>
+        </Link>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-xl font-bold text-gray-900">{salon.name}</h1>
@@ -199,12 +200,12 @@ export default function AdminSalonDetailPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      <a
+      <Link
         href={`/admin/activity?salonId=${id}`}
         className="inline-block text-sm text-blue-600 hover:text-blue-700"
       >
         {t('admin_nav_activity')} →
-      </a>
+      </Link>
     </div>
   )
 }

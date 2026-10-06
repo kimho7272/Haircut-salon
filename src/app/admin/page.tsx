@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { Store, CreditCard, UserPlus, Users2, ArrowRight } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useAdminSession } from './AdminSessionContext'
@@ -64,16 +65,16 @@ export default function AdminDashboardPage() {
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <h2 className="font-bold text-gray-900">{t('admin_recent_salons')}</h2>
-          <a href="/admin/salons" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+          <Link href="/admin/salons" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
             {t('admin_nav_salons')} <ArrowRight className="w-3.5 h-3.5" />
-          </a>
+          </Link>
         </div>
         <div className="divide-y divide-gray-100">
           {overview.recentSalons.length === 0 && (
             <p className="px-5 py-6 text-sm text-gray-500">{t('admin_no_activity_yet')}</p>
           )}
           {overview.recentSalons.map(salon => (
-            <a
+            <Link
               key={salon.id}
               href={`/admin/salons/${salon.id}`}
               className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
@@ -90,7 +91,7 @@ export default function AdminDashboardPage() {
                 </span>
                 <span className="text-xs text-gray-400">{new Date(salon.created_at).toLocaleDateString()}</span>
               </div>
-            </a>
+            </Link>
           ))}
         </div>
       </div>

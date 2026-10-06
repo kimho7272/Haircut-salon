@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { History, X } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -67,9 +68,9 @@ function AdminActivityContent() {
           {t('admin_nav_activity')}
         </h1>
         {salonIdFilter && (
-          <a href="/admin/activity" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+          <Link href="/admin/activity" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
             <X className="w-3.5 h-3.5" /> {events[0]?.targetSalon?.name || salonIdFilter}
-          </a>
+          </Link>
         )}
       </div>
 
@@ -90,9 +91,9 @@ function AdminActivityContent() {
                   {t(ACTION_KEY[event.action] || event.action)}
                 </span>
                 {event.targetSalon && !salonIdFilter && (
-                  <a href={`/admin/salons/${event.targetSalon.id}`} className="font-medium text-blue-600 hover:text-blue-700 truncate">
+                  <Link href={`/admin/salons/${event.targetSalon.id}`} className="font-medium text-blue-600 hover:text-blue-700 truncate">
                     {event.targetSalon.name}
-                  </a>
+                  </Link>
                 )}
                 <span className="text-gray-500 truncate">{describeDetail(event.action, event.detail)}</span>
               </div>

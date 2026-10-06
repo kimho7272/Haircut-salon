@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, ReactNode } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { ShieldCheck, LogOut, Lock, Mail, LayoutDashboard, Store, History, Users } from 'lucide-react'
 import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext'
 import { supabase } from '@/lib/supabase'
@@ -105,7 +106,7 @@ function AdminChrome({ session, children }: { session: Session; children: ReactN
             const Icon = item.icon
             const active = pathname === item.href
             return (
-              <a
+              <Link
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
@@ -114,7 +115,7 @@ function AdminChrome({ session, children }: { session: Session; children: ReactN
               >
                 <Icon className="w-4 h-4" />
                 {item.label}
-              </a>
+              </Link>
             )
           })}
         </nav>

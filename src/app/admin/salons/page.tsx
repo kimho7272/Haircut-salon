@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import { Search, ArrowUpDown } from 'lucide-react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useAdminSession } from '../AdminSessionContext'
@@ -138,9 +139,9 @@ export default function AdminSalonsPage() {
               {filteredSorted.map(salon => (
                 <tr key={salon.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <a href={`/admin/salons/${salon.id}`} className="font-medium text-blue-600 hover:text-blue-700">
+                    <Link href={`/admin/salons/${salon.id}`} className="font-medium text-blue-600 hover:text-blue-700">
                       {salon.name}
-                    </a>
+                    </Link>
                     <div className="text-xs text-gray-500">{salon.slug}</div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{salon.owner_email || '—'}</td>
