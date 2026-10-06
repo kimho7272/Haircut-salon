@@ -50,9 +50,6 @@ function SalonLoginForm({ slug }: { slug: string }) {
         return
       }
 
-      // setSession이 onAuthStateChange(SIGNED_IN)을 발생시켜 AuthContext가 알아서
-      // 프로필/살롱을 불러오고, 이 페이지는 그 상태를 보고 AppShell로 전환됨
-      // (별도로 router.push 할 필요 없음)
       const { error: setSessionError } = await supabase.auth.setSession({
         access_token: result.access_token,
         refresh_token: result.refresh_token
@@ -61,7 +58,13 @@ function SalonLoginForm({ slug }: { slug: string }) {
       if (setSessionError) {
         setError(t('login_error_failed'))
         setLoading(false)
+        return
       }
+
+      // setSession이 onAuthStateChange를 안정적으로 쏴주지 않을 때가 있어서
+      // (루트 로그인의 signInWithPassword 경로와 다름), AuthContext가 세션을
+      // 처음부터 다시 읽도록 완전히 새로고침한다 — 루트 로그인과 동일하게 동작 보장
+      window.location.reload()
     } catch (err) {
       setError(t('login_error_failed'))
       setLoading(false)
