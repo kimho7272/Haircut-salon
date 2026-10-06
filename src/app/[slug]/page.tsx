@@ -7,6 +7,7 @@ import { LanguageProvider, useLanguage } from '@/contexts/LanguageContext'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import LanguageSelector from '@/components/LanguageSelector'
 import AppShell from '@/components/AppShell'
+import { supabase } from '@/lib/supabase'
 
 function SalonLoginForm({ slug }: { slug: string }) {
   const { t } = useLanguage()
@@ -36,27 +37,35 @@ function SalonLoginForm({ slug }: { slug: string }) {
     setError('')
 
     try {
-      const response = await fetch('/api/staff-login', {
+      // 1단계: 실제(contact) 이메일 → 내부 합성 auth 이메일 변환 (비밀번호 검증은 안 함)
+      const response = await fetch('/api/resolve-login-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug, ...formData })
+        body: JSON.stringify({ slug, email: formData.email })
       })
       const result = await response.json()
 
-      if (!response.ok || !result.access_token) {
+      if (!response.ok || !result.authEmail) {
         setError(t('login_error_invalid'))
         setLoading(false)
         return
       }
 
-      // auth.setSession()을 쓰지 않는다 — 같은 탭에서 연속으로 Supabase 인증 동작을
-      // 호출하면(세션 확인 → setSession → 새로고침) supabase-js 내부 락이 걸린 채로
-      // 안 풀리는 경우가 실제로 있었음 (새로고침 후에도 멈춰있는 걸 확인). 대신
-      // supabase-js가 평소에 쓰는 것과 똑같은 모양으로 세션을 storage에 직접 써넣고
-      // 새로고침하면, 새 페이지는 "그냥 로그인된 상태로 처음 열린" 것과 동일하게
-      // 동작해서 락 문제 자체가 생기지 않는다.
-      sessionStorage.setItem('haircut-auth', JSON.stringify(result))
-      window.location.reload()
+      // 2단계: 루트 로그인과 완전히 동일한 방식으로 클라이언트에서 직접 로그인한다.
+      // (서버에서 세션을 만들어 토큰만 넘겨주고 클라이언트가 그걸 "주입"하는 방식은
+      // 실제로 써보니 supabase-js가 멈춰버리는 문제가 있어서, 검증된 루트 로그인과
+      // 똑같은 signInWithPassword 호출 경로를 그대로 재사용함 — 이메일만 바뀐 것뿐)
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: result.authEmail,
+        password: formData.password
+      })
+
+      if (signInError) {
+        setError(t('login_error_invalid'))
+        setLoading(false)
+      }
+      // 성공하면 AuthContext의 onAuthStateChange(SIGNED_IN)가 알아서 처리하고
+      // 이 페이지는 그 상태를 보고 AppShell로 자연스럽게 전환됨
     } catch (err) {
       setError(t('login_error_failed'))
       setLoading(false)
