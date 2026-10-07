@@ -875,7 +875,7 @@ export default function RevenueManagement() {
     <div className="min-h-screen bg-gray-50">
       {/* 헤더 */}
       <div className="bg-white shadow-sm border-b">
-        <div className="px-3 py-3">
+        <div className="px-3 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

@@ -223,7 +223,7 @@ export default function ServiceManagement() {
                     {t('status')}
                   </th>
                   <th className="px-6 py-3 text-right text-sm font-bold text-gray-500 uppercase tracking-wider">
-                    Actions
+                    {t('actions')}
                   </th>
                 </tr>
               </thead>

@@ -450,6 +450,7 @@ const translations = {
     'join_date': '가입일',
     'price_placeholder': '가격 (원)',
     'duration_placeholder': '소요시간 (분)',
+    'actions': '작업',
 
     // 예약 링크 (일정 화면 상단)
     'booking_link_button': '예약 링크',
@@ -932,6 +933,7 @@ const translations = {
     'join_date': 'Join Date',
     'price_placeholder': 'Price',
     'duration_placeholder': 'Duration (min)',
+    'actions': 'Actions',
 
     // Booking link (schedule header)
     'booking_link_button': 'Booking Link',

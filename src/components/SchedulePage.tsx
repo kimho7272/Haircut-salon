@@ -448,7 +448,7 @@ export default function SchedulePage() {
 
       {/* 상단 패널 */}
       <div className="bg-white shadow-sm border-b">
-        <div className="px-6 py-4">
+        <div className="px-3 py-4">
           <div className="flex items-end justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
