@@ -94,6 +94,9 @@ export type Appointment = {
   // Payment info
   payment_method?: 'cash' | 'card'
   payment_amount?: number
+  // 고객 셀프 예약 관련
+  booking_source?: 'staff' | 'online'
+  reminder_sent_at?: string | null
   // Relations
   customer?: Customer
   staff?: Staff

@@ -3,14 +3,29 @@
 import { useState, useEffect } from 'react'
 import { format, startOfWeek, addDays, isSameDay, parseISO } from 'date-fns'
 import { ko, enUS } from 'date-fns/locale'
-import { Calendar, Clock, User, Plus, Trash2, X } from 'lucide-react'
+import { Calendar, Clock, User, Plus, Trash2, X, Link2, Copy, Check } from 'lucide-react'
 import AppointmentModal from '@/components/AppointmentModal'
 import DeleteConfirmModal from '@/components/DeleteConfirmModal'
 import { getAppointmentsByDateRange, deleteAppointment, type AppointmentWithRelations } from '@/utils/supabaseService'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function SchedulePage() {
   const { t, language } = useLanguage()
+  const { salon } = useAuth()
+  const [bookingLinkOpen, setBookingLinkOpen] = useState(false)
+  const [bookingLinkCopied, setBookingLinkCopied] = useState(false)
+  const bookingLink = salon && typeof window !== 'undefined' ? `${window.location.origin}/${salon.slug}/book` : ''
+
+  const copyBookingLink = async () => {
+    try {
+      await navigator.clipboard.writeText(bookingLink)
+      setBookingLinkCopied(true)
+      setTimeout(() => setBookingLinkCopied(false), 2000)
+    } catch {
+      // clipboard API 접근 실패 시에도 링크는 화면에 보이므로 수동 복사 가능
+    }
+  }
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([])
@@ -447,6 +462,13 @@ export default function SchedulePage() {
 
             {/* 주간 네비게이션 버튼들 */}
             <div className="flex gap-2">
+              <button
+                onClick={() => setBookingLinkOpen(true)}
+                className="flex items-center gap-1.5 px-4 py-1 text-sm text-purple-700 bg-purple-50 border border-purple-200 rounded hover:bg-purple-100 transition-colors"
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                {t('booking_link_button')}
+              </button>
               <button
                 onClick={() => setCurrentDate(addDays(currentDate, -7))}
                 className="px-4 py-1 text-sm text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
@@ -1022,6 +1044,48 @@ export default function SchedulePage() {
         appointment={appointmentToDelete}
         loading={deleteLoading}
       />
+
+      {/* 고객 예약 링크 모달 */}
+      {bookingLinkOpen && (
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-transparent flex items-center justify-center p-4"
+          onClick={() => setBookingLinkOpen(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl border-2 border-gray-400 max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between py-2 px-4 border-b bg-blue-50 border-blue-200">
+              <h2 className="text-lg font-bold text-blue-800 flex items-center gap-2">
+                <Link2 className="w-5 h-5" />
+                {t('booking_link_title')}
+              </h2>
+              <button onClick={() => setBookingLinkOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">{t('booking_link_description')}</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={bookingLink}
+                  onFocus={(e) => e.target.select()}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-gray-50"
+                />
+                <button
+                  onClick={copyBookingLink}
+                  className="flex items-center gap-1.5 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors text-sm shrink-0"
+                >
+                  {bookingLinkCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {bookingLinkCopied ? t('link_copied') : t('copy_link')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
