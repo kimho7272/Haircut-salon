@@ -66,6 +66,13 @@ const translations = {
     'signup_error_generic': '가입에 실패했습니다. 잠시 후 다시 시도해주세요.',
     'signup_have_account': '이미 계정이 있으신가요?',
     'signup_go_login': '로그인',
+    'signup_url_preview_label': '내 미용실 주소',
+    'signup_url_checking': '확인 중...',
+    'signup_success_title': '가입 완료!',
+    'signup_success_subtitle': '이제부터 이 주소로 접속하면 돼요',
+    'signup_add_bookmark': '즐겨찾기에 추가',
+    'signup_bookmark_instruction': '{shortcut} 키를 눌러 즐겨찾기에 추가하세요 (주소가 복사되었어요)',
+    'signup_continue_to_dashboard': '시작하기',
 
     // 로그인 계정(좌석) 관리
     'login_accounts_section': '로그인 계정',
@@ -561,6 +568,13 @@ const translations = {
     'signup_error_generic': 'Signup failed. Please try again shortly.',
     'signup_have_account': 'Already have an account?',
     'signup_go_login': 'Log in',
+    'signup_url_preview_label': 'Your salon address',
+    'signup_url_checking': 'Checking...',
+    'signup_success_title': 'You\'re all set!',
+    'signup_success_subtitle': 'From now on, this is your address',
+    'signup_add_bookmark': 'Add to bookmarks',
+    'signup_bookmark_instruction': 'Press {shortcut} to bookmark this page (address copied)',
+    'signup_continue_to_dashboard': 'Get started',
 
     // Login accounts (seats)
     'login_accounts_section': 'Login accounts',

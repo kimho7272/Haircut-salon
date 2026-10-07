@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { logAdminEvent } from '@/lib/adminAudit'
-
-// 이 경로들은 /[slug] 동적 라우트와 겹치면 안 되는 예약어
-const RESERVED_SLUGS = new Set(['admin', 'signup', 'api', 'login', 'www'])
-
-const makeSlug = (name: string) => {
-  const base = name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9가-힣]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-  return base || 'salon'
-}
+import { resolveAvailableSlug } from '@/lib/slug'
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
@@ -25,18 +14,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_input' }, { status: 400 })
   }
 
-  // slug 중복/예약어 방지 (같은 이름이면 뒤에 짧은 접미사를 붙임)
-  const baseSlug = makeSlug(salonName)
-  let slug = baseSlug
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const { data: existing } = await supabaseAdmin
-      .from('salons')
-      .select('id')
-      .eq('slug', slug)
-      .maybeSingle()
-    if (!existing && !RESERVED_SLUGS.has(slug)) break
-    slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`
-  }
+  const slug = await resolveAvailableSlug(salonName)
 
   const { data: createdUser, error: userError } = await supabaseAdmin.auth.admin.createUser({
     email,
@@ -83,5 +61,5 @@ export async function POST(request: NextRequest) {
     detail: { salonName, slug, ownerEmail: email },
   })
 
-  return NextResponse.json({ success: true, salonId: salon.id, userId })
+  return NextResponse.json({ success: true, salonId: salon.id, userId, slug })
 }
