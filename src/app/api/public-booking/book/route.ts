@@ -137,7 +137,9 @@ export async function POST(request: NextRequest) {
       serviceNames: services.map(s => s.name),
       dateLabel,
       timeLabel: time,
-    }).catch(err => console.error('예약 확인 메일 발송 실패:', err))
+    }).then(result => {
+      if (!result.ok) console.error('예약 확인 메일 발송 실패:', result.error)
+    })
   }
 
   return NextResponse.json({ success: true, appointmentId: appointment.id })
