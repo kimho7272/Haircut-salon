@@ -49,11 +49,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth()
 
     // 인증 상태 변경 리스너
+    // 주의: 이 콜백 안에서 추가 supabase 호출(.from() 등)을 동기적으로 실행하면
+    // supabase-js의 내부 auth lock(navigator.locks)이 재진입(reentrant) 상태에
+    // 빠져 영원히 풀리지 않는 경우가 실제로 있었음 (supabase/auth-js#762와 동일 증상 —
+    // 프로덕션 빌드에서 로그인된 상태로 새로고침만 해도 스피너가 영원히 멈추고
+    // 네트워크 요청이 단 하나도 안 나감). setTimeout으로 다음 틱으로 미뤄서
+    // 이 콜백의 동기 실행 스택(= lock을 쥐고 있는 구간)을 먼저 빠져나가게 한다.
     const {
       data: { subscription },
-    } = supabaseClient.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+    } = supabaseClient.auth.onAuthStateChange((event: AuthChangeEvent, session: Session | null) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        await loadUserProfile(session.user)
+        const signedInUser = session.user
+        setTimeout(() => { loadUserProfile(signedInUser) }, 0)
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
         setSalon(null)
