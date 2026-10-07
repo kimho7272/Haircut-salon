@@ -496,7 +496,19 @@ const translations = {
     'book_success_message': '예약 내용을 확인했어요. 변경이 필요하시면 매장으로 연락해주세요.',
     'book_success_new': '새로 예약하기',
     'book_not_found_title': '미용실을 찾을 수 없습니다',
-    'book_not_found_message': '주소를 다시 확인해주세요.'
+    'book_not_found_message': '주소를 다시 확인해주세요.',
+    'book_manage_link': '예약 조회·취소',
+    'book_manage_title': '내 예약 조회',
+    'book_manage_phone_prompt': '예약하실 때 입력하신 전화번호를 입력해주세요.',
+    'book_manage_search': '조회하기',
+    'book_manage_searching': '조회 중...',
+    'book_manage_none_found': '예정된 예약이 없습니다.',
+    'book_manage_cancel_button': '예약 취소',
+    'book_manage_cancel_confirm_title': '예약을 취소할까요?',
+    'book_manage_cancel_confirm_yes': '취소하기',
+    'book_manage_cancelling': '취소 처리 중...',
+    'book_manage_cancelled': '취소되었습니다.',
+    'book_manage_back_to_booking': '새 예약하기'
   },
   en: {
     // 공통
@@ -979,7 +991,19 @@ const translations = {
     'book_success_message': 'We\'ve got your booking. Contact the salon directly if you need to change it.',
     'book_success_new': 'Book Another',
     'book_not_found_title': 'Salon not found',
-    'book_not_found_message': 'Please check the link and try again.'
+    'book_not_found_message': 'Please check the link and try again.',
+    'book_manage_link': 'Manage / Cancel Booking',
+    'book_manage_title': 'Find My Booking',
+    'book_manage_phone_prompt': 'Enter the phone number you used to book.',
+    'book_manage_search': 'Search',
+    'book_manage_searching': 'Searching...',
+    'book_manage_none_found': 'No upcoming bookings found.',
+    'book_manage_cancel_button': 'Cancel Booking',
+    'book_manage_cancel_confirm_title': 'Cancel this booking?',
+    'book_manage_cancel_confirm_yes': 'Yes, cancel it',
+    'book_manage_cancelling': 'Cancelling...',
+    'book_manage_cancelled': 'Cancelled.',
+    'book_manage_back_to_booking': 'Book Another'
   }
 }
 

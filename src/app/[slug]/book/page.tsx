@@ -12,7 +12,7 @@ type ServiceInfo = { id: string; name: string; price: number; duration: number; 
 type StaffInfo = { id: string; name: string }
 type Step = 'services' | 'staff' | 'datetime' | 'info' | 'done'
 
-function BookingContent({ slug }: { slug: string }) {
+function BookingContent({ slug, onSwitchToManage }: { slug: string; onSwitchToManage: () => void }) {
   const { t, language, formatCurrency } = useLanguage()
 
   const [loadingInfo, setLoadingInfo] = useState(true)
@@ -427,6 +427,160 @@ function BookingContent({ slug }: { slug: string }) {
           )}
         </div>
 
+        {step !== 'done' && (
+          <div className="text-center mt-4">
+            <button type="button" onClick={onSwitchToManage} className="text-sm text-gray-500 hover:text-gray-700 underline">
+              {t('book_manage_link')}
+            </button>
+          </div>
+        )}
+
+        <div className="flex justify-center mt-4">
+          <LanguageSelector isCollapsed={false} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ManageBookingContent({ slug, onBackToBooking }: { slug: string; onBackToBooking: () => void }) {
+  const { t, language } = useLanguage()
+
+  const [phone, setPhone] = useState('')
+  const [searched, setSearched] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const [appointments, setAppointments] = useState<Array<{ id: string; date: string; time: string; staffName: string | null; serviceNames: string[] }>>([])
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelledIds, setCancelledIds] = useState<string[]>([])
+
+  const handleSearch = async () => {
+    if (!phone.trim()) return
+    setSearching(true)
+    setSearched(false)
+    try {
+      const response = await fetch('/api/public-booking/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, phone: phone.trim() }),
+      })
+      const result = await response.json()
+      setAppointments(result.appointments || [])
+      setSearched(true)
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const handleCancel = async (appointmentId: string) => {
+    setCancelling(true)
+    try {
+      const response = await fetch('/api/public-booking/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, appointmentId, phone: phone.trim() }),
+      })
+      if (response.ok) {
+        setCancelledIds(prev => [...prev, appointmentId])
+      }
+      setCancelTarget(null)
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 px-4 py-10 sm:py-14">
+      <div className="max-w-lg mx-auto">
+        <div className="text-center mb-6">
+          <div className="flex justify-center items-center gap-2 mb-3">
+            <Sparkles className="h-6 w-6 text-pink-500" />
+            <div className="h-12 w-12 flex items-center justify-center rounded-full bg-gradient-to-r from-purple-500 to-pink-500 shadow-lg">
+              <Scissors className="h-6 w-6 text-white" />
+            </div>
+            <Sparkles className="h-6 w-6 text-purple-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">{t('book_manage_title')}</h1>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-xl border border-white/20 p-6 sm:p-8 space-y-4">
+          <button type="button" onClick={onBackToBooking} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+            <ChevronLeft className="w-4 h-4" /> {t('book_back')}
+          </button>
+
+          <p className="text-sm text-gray-600">{t('book_manage_phone_prompt')}</p>
+          <div className="flex items-center gap-2">
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder={t('book_phone_placeholder')}
+              className="flex-1 px-4 py-3 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <button
+              type="button"
+              disabled={searching || !phone.trim()}
+              onClick={handleSearch}
+              className="px-5 py-3 rounded-xl text-white font-medium bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-40 transition-all shrink-0 text-sm"
+            >
+              {searching ? t('book_manage_searching') : t('book_manage_search')}
+            </button>
+          </div>
+
+          {searched && (
+            <div className="space-y-3 pt-2">
+              {appointments.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">{t('book_manage_none_found')}</p>
+              ) : (
+                appointments.map(apt => {
+                  const isCancelled = cancelledIds.includes(apt.id)
+                  return (
+                    <div key={apt.id} className="border border-gray-200 rounded-xl p-4 space-y-1.5 text-sm">
+                      <div className="flex justify-between text-gray-900 font-medium">
+                        <span>{format(new Date(`${apt.date}T00:00:00`), language === 'ko' ? 'M월 d일 (EEE)' : 'MMM d (EEE)', { locale: language === 'ko' ? ko : enUS })}</span>
+                        <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{apt.time}</span>
+                      </div>
+                      <div className="text-gray-600">{apt.serviceNames.join(', ')}</div>
+                      {apt.staffName && <div className="text-gray-500 text-xs">{apt.staffName}</div>}
+
+                      {isCancelled ? (
+                        <p className="text-green-600 text-xs font-medium pt-1">{t('book_manage_cancelled')}</p>
+                      ) : cancelTarget === apt.id ? (
+                        <div className="flex items-center gap-2 pt-1">
+                          <span className="text-xs text-gray-600">{t('book_manage_cancel_confirm_title')}</span>
+                          <button
+                            type="button"
+                            disabled={cancelling}
+                            onClick={() => handleCancel(apt.id)}
+                            className="px-3 py-1 rounded-lg bg-red-600 text-white text-xs hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {cancelling ? t('book_manage_cancelling') : t('book_manage_cancel_confirm_yes')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCancelTarget(null)}
+                            className="px-3 py-1 rounded-lg border border-gray-300 text-gray-600 text-xs hover:bg-gray-50"
+                          >
+                            {t('cancel')}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setCancelTarget(apt.id)}
+                          className="text-red-600 text-xs font-medium hover:text-red-700 pt-1"
+                        >
+                          {t('book_manage_cancel_button')}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="flex justify-center mt-4">
           <LanguageSelector isCollapsed={false} />
         </div>
@@ -438,10 +592,13 @@ function BookingContent({ slug }: { slug: string }) {
 export default function PublicBookingPage() {
   const params = useParams()
   const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug
+  const [mode, setMode] = useState<'book' | 'manage'>('book')
 
   return (
     <LanguageProvider>
-      <BookingContent slug={slug || ''} />
+      {mode === 'book'
+        ? <BookingContent slug={slug || ''} onSwitchToManage={() => setMode('manage')} />
+        : <ManageBookingContent slug={slug || ''} onBackToBooking={() => setMode('book')} />}
     </LanguageProvider>
   )
 }
